@@ -1,0 +1,22 @@
+[project]
+name = "yamltrip"
+version = "0.1.0"
+description = "A round-tripping YAML library for Python"
+readme = "README.md"
+authors = [
+    { name = "Nathan McDougall", email = "nathan.j.mcdougall@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.maturin]
+module-name = "yamltrip._core"
+python-packages = ["yamltrip"]
+python-source = "src"
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.rs" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"

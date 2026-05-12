@@ -16,8 +16,13 @@ pub struct PyLocation {
 #[pymethods]
 impl PyLocation {
     #[new]
-    fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+    fn new(start: usize, end: usize) -> PyResult<Self> {
+        if start > end {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                format!("Location start ({start}) must not exceed end ({end})"),
+            ));
+        }
+        Ok(Self { start, end })
     }
 
     fn __repr__(&self) -> String {

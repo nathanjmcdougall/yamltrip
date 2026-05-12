@@ -189,10 +189,11 @@ class Document:
             if self._core_doc.query_exists(ancestor_route):
                 remaining_keys = keys[depth:]
                 _check_no_int_keys_for_creation(remaining_keys)
+                merge_key = remaining_keys[0]
+                assert isinstance(merge_key, str)  # validated above
                 nested_value = value
                 for k in reversed(remaining_keys[1:]):
                     nested_value = {k: nested_value}
-                merge_key = remaining_keys[0]
                 route = _make_route(ancestor_keys)
                 if isinstance(nested_value, dict):
                     op = _core.Op.merge_into(merge_key, nested_value)
@@ -204,10 +205,11 @@ class Document:
 
         # No path exists — add at root
         _check_no_int_keys_for_creation(keys)
+        root_key = keys[0]
+        assert isinstance(root_key, str)  # validated above
         nested_value = value
         for k in reversed(keys[1:]):
             nested_value = {k: nested_value}
-        root_key = keys[0]
         route = _make_route(())
         op = _core.Op.add(root_key, nested_value)
         patch = _core.Patch(route=route, operation=op)

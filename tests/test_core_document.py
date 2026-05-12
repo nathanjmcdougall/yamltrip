@@ -42,18 +42,21 @@ class TestDocumentQuery:
         doc = Document("name: foo")
         route = Route(["name"])
         feature = doc.query_exact(route)
+        assert feature is not None
         assert doc.extract(feature) == "foo"
 
     def test_nested_query(self):
         doc = Document("a:\n  b: 42")
         route = Route(["a", "b"])
         feature = doc.query_exact(route)
+        assert feature is not None
         assert doc.extract(feature) == "42"
 
     def test_sequence_query(self):
         doc = Document("items:\n  - a\n  - b")
         route = Route(["items", 0])
         feature = doc.query_exact(route)
+        assert feature is not None
         assert doc.extract(feature) == "a"
 
 
@@ -62,10 +65,12 @@ class TestDocumentFeatureKind:
         doc = Document("name: foo")
         route = Route(["name"])
         feature = doc.query_exact(route)
+        assert feature is not None
         assert feature.kind == FeatureKind.Scalar
 
     def test_mapping_kind(self):
         doc = Document("a:\n  b: 1")
         route = Route(["a"])
         feature = doc.query_exact(route)
+        assert feature is not None
         assert feature.kind == FeatureKind.BlockMapping

@@ -18,6 +18,8 @@ python-source = "src"
 cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.rs" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }]
 link-mode = "symlink"
 
+[tool.ty.src]
+include = ["src", "tests"]
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
@@ -27,4 +29,5 @@ dev = [
     "prek>=0.3.13",
     "pytest>=9.0.3",
     "ruff>=0.15.12",
+    "ty>=0.0.35",
 ]

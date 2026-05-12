@@ -49,7 +49,15 @@ impl PyOp {
     /// Merge key-value pairs into an existing mapping.
     #[staticmethod]
     fn merge_into(key: &str, updates: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let dict = updates.downcast::<pyo3::types::PyDict>()?;
+        let dict = updates.downcast::<pyo3::types::PyDict>().map_err(|_| {
+            let type_name = updates.get_type().name().map_or_else(
+                |_| "<unknown>".to_string(),
+                |n| n.to_string(),
+            );
+            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                "updates must be a dict, got {type_name}"
+            ))
+        })?;
         let mut map = indexmap::IndexMap::new();
         for (k, v) in dict.iter() {
             let key_str: String = k.extract()?;

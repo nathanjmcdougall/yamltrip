@@ -248,8 +248,20 @@ class Document:
             msg = f"Value at {keys} is not a list"
             raise PatchError(msg)
 
+        values_set: set[Any] = set()
+        values_unhashable: list[Any] = []
+        for v in values:
+            try:
+                values_set.add(v)
+            except TypeError:
+                values_unhashable.append(v)
+
         indices_to_remove = sorted(
-            [i for i, item in enumerate(current_list) if item in values],
+            [
+                i
+                for i, item in enumerate(current_list)
+                if item in values_set or item in values_unhashable
+            ],
             reverse=True,
         )
 

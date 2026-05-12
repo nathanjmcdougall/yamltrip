@@ -226,10 +226,14 @@ class Document:
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""
-        doc = self
-        for v in values:
-            doc = doc.append(*keys, value=v)
-        return doc
+        if not values:
+            return self
+        route = _make_route(keys)
+        patches = [
+            _core.Patch(route=route, operation=_core.Op.append(v)) for v in values
+        ]
+        new_source = _apply(self._source, patches)
+        return Document(new_source)
 
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Remove all occurrences of given values from the sequence at path."""
@@ -243,11 +247,14 @@ class Document:
             reverse=True,
         )
 
-        doc = self
-        for idx in indices_to_remove:
-            route = _make_route((*keys, idx))
-            op = _core.Op.remove()
-            patch = _core.Patch(route=route, operation=op)
-            new_source = _apply(doc._source, [patch])
-            doc = Document(new_source)
-        return doc
+        if not indices_to_remove:
+            return self
+        patches = [
+            _core.Patch(
+                route=_make_route((*keys, idx)),
+                operation=_core.Op.remove(),
+            )
+            for idx in indices_to_remove
+        ]
+        new_source = _apply(self._source, patches)
+        return Document(new_source)

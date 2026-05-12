@@ -54,6 +54,16 @@ class Document:
         """The current YAML source text."""
         return self._source
 
+    def __eq__(self, other: object) -> bool:
+        """Compare documents by their source text."""
+        if not isinstance(other, Document):
+            return NotImplemented
+        return self._source == other._source
+
+    def __hash__(self) -> int:
+        """Hash based on source text."""
+        return hash(self._source)
+
     def __getitem__(self, keys: Any) -> Any:
         """Retrieve the parsed value at the given path."""
         normalized = _normalize_keys(keys)

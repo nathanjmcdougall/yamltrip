@@ -18,6 +18,21 @@ class TestDocumentConstruction:
         doc = Document("")
         assert doc.source == ""
 
+    def test_equality(self):
+        assert Document("name: foo") == Document("name: foo")
+
+    def test_inequality(self):
+        assert Document("name: foo") != Document("name: bar")
+
+    def test_equality_not_implemented_for_other_types(self):
+        assert Document("name: foo") != "name: foo"
+
+    def test_hashable(self):
+        doc1 = Document("name: foo")
+        doc2 = Document("name: foo")
+        assert hash(doc1) == hash(doc2)
+        assert {doc1, doc2} == {doc1}
+
 
 class TestDocumentGetitem:
     def test_single_key(self):

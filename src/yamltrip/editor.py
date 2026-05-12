@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from yamltrip.document import Document, KeyPart, _normalize_keys
 
-if __import__("typing").TYPE_CHECKING:
+if TYPE_CHECKING:
     from yamltrip._core import Feature
 
 

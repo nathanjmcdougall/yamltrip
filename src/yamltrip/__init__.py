@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from yamltrip._core import Component, Feature, FeatureKind, Location, Route
 from yamltrip.document import Document
@@ -16,9 +15,6 @@ from yamltrip.errors import (
     QueryError,
     YAMLTripError,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 def loads(source: str) -> Document:

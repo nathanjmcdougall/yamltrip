@@ -1,5 +1,3 @@
-import pytest
-
 from yamltrip._core import Op, Patch, Route, apply_patches
 
 

@@ -1,7 +1,11 @@
 import pytest
 
 from yamltrip.document import Document
-from yamltrip.errors import KeyExistsError, KeyMissingError, ParseError, PatchError, QueryError
+from yamltrip.errors import (
+    KeyExistsError,
+    KeyMissingError,
+    QueryError,
+)
 
 
 class TestDocumentConstruction:

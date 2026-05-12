@@ -1,7 +1,5 @@
 """Round-trip preservation tests."""
 
-import pytest
-
 from yamltrip import Document
 
 
@@ -53,14 +51,14 @@ class TestIndentationPreservation:
         doc = Document(source).replace("parent", "child", value="baz")
         # Check indentation is preserved (4-space indent)
         lines = doc.source.split("\n")
-        child_line = [l for l in lines if "child" in l][0]
+        child_line = next(line for line in lines if "child" in line)
         assert child_line.startswith("    ")
 
     def test_two_space_indent(self):
         source = "parent:\n  child: foo\n"
         doc = Document(source).replace("parent", "child", value="baz")
         lines = doc.source.split("\n")
-        child_line = [l for l in lines if "child" in l][0]
+        child_line = next(line for line in lines if "child" in line)
         assert child_line.startswith("  ")
 
 

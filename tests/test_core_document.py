@@ -38,7 +38,7 @@ class TestDocumentQuery:
     def test_query_exact_missing(self):
         doc = Document("name: foo")
         route = Route(["missing"])
-        with pytest.raises(Exception):
+        with pytest.raises(KeyError):
             doc.query_exact(route)
 
     def test_extract(self):

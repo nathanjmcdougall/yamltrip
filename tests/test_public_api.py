@@ -1,8 +1,5 @@
 """Tests for the public API surface."""
 
-import pytest
-from pathlib import Path
-
 import yamltrip
 
 

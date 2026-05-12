@@ -16,7 +16,22 @@ python-source = "src"
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.rs" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }]
+link-mode = "symlink"
 
+[tool.ruff]
+line-length = 88
+format.docstring-code-format = true
+lint.select = ["A", "C4", "E4", "E7", "E9", "F", "FLY", "FURB", "I", "PLE", "PLR", "PT", "RUF", "SIM", "UP", "S101"]
+lint.ignore = ["PLR2004", "SIM108"]
+lint.per-file-ignores."tests/**" = ["RUF059", "S101"]
+lint.per-file-ignores."!tests/**/*.py" = ["PT"]
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.13",
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
+]

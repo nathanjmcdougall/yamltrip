@@ -1,7 +1,6 @@
 import pytest
 
 from yamltrip.editor import Editor
-from yamltrip.errors import QueryError
 
 
 @pytest.fixture
@@ -23,18 +22,16 @@ class TestEditorContextManager:
         assert "bar" in content
 
     def test_no_write_on_exception(self, yaml_file):
-        with pytest.raises(RuntimeError):
-            with Editor(yaml_file) as editor:
-                editor.replace("name", value="bar")
-                raise RuntimeError("boom")
+        with pytest.raises(RuntimeError, match="boom"), Editor(yaml_file) as editor:  # noqa: PT012
+            editor.replace("name", value="bar")
+            raise RuntimeError("boom")
         content = yaml_file.read_text(encoding="utf-8")
         assert "foo" in content
         assert "bar" not in content
 
     def test_file_not_found(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            with Editor(tmp_path / "missing.yml") as editor:
-                pass
+        with pytest.raises(FileNotFoundError), Editor(tmp_path / "missing.yml"):
+            pass
 
 
 class TestEditorOriginal:

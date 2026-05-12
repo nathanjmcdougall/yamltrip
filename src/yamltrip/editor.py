@@ -32,21 +32,24 @@ class Editor:
         self._document = Document(source)
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any) -> None:
+    def __exit__(
+        self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> None:
         if exc_type is None and self._document is not None:
             self._path.write_text(self._document.dumps(), encoding="utf-8")
         self._original = None
         self._document = None
-        return None
 
     @property
     def original(self) -> Document:
-        assert self._original is not None, "Editor not entered"
+        if self._original is None:
+            raise RuntimeError("Editor must be used as a context manager")
         return self._original
 
     @property
     def document(self) -> Document:
-        assert self._document is not None, "Editor not entered"
+        if self._document is None:
+            raise RuntimeError("Editor must be used as a context manager")
         return self._document
 
     def __getitem__(self, keys: Any) -> Any:

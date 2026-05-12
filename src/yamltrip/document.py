@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Union
+from typing import Any
 
 from yamltrip import _core
-from yamltrip.errors import KeyExistsError, KeyMissingError, ParseError, PatchError, QueryError
+from yamltrip.errors import (
+    KeyExistsError,
+    KeyMissingError,
+    ParseError,
+    PatchError,
+    QueryError,
+)
 
-from collections.abc import Sequence
-
-if TYPE_CHECKING:
-    pass
-
-KeyPart = Union[str, int]
+KeyPart = str | int
 
 
 def _normalize_keys(keys: Any) -> tuple[KeyPart, ...]:

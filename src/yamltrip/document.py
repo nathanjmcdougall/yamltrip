@@ -58,6 +58,11 @@ class Document:
     """An immutable YAML document.
 
     Each mutation method returns a new Document — the original is never modified.
+
+    Equality and hashing are based on the raw source text, not semantic content.
+    Two documents with equivalent YAML but different formatting (e.g. extra
+    whitespace) are considered unequal. This is intentional for a round-tripping
+    library where formatting is significant.
     """
 
     def __init__(self, source: str) -> None:

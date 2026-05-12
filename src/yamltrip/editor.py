@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from yamltrip.document import Document, _normalize_keys
+from yamltrip.document import Document
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -72,8 +72,12 @@ class Editor:
 
     def __setitem__(self, keys: Any, value: Any) -> None:
         """Upsert a value at the given path."""
-        normalized = _normalize_keys(keys)
-        self._document = self.document.upsert(*normalized, value=value)
+        if isinstance(keys, (str, int)):
+            keys = (keys,)
+        elif not isinstance(keys, tuple):
+            msg = f"Keys must be str, int, or tuple, got {type(keys).__name__}"
+            raise TypeError(msg)
+        self._document = self.document.upsert(*keys, value=value)
 
     def replace(self, *keys: KeyPart, value: Any) -> None:
         """Replace the value at an existing path."""

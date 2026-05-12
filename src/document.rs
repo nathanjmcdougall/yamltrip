@@ -128,15 +128,6 @@ impl PyDocument {
     }
 }
 
-/// Parse the YAML value at a route and return it as a Python object.
-///
-/// Standalone wrapper that parses the source first.  Prefer
-/// `Document.parse_value` when you already hold a `Document`.
-#[pyfunction]
-pub fn parse_value(py: Python<'_>, source: &str, route: &PyRoute) -> PyResult<PyObject> {
-    let doc = PyDocument::new(source)?;
-    doc.parse_value(py, route)
-}
 
 fn convert_feature(feature: &yamlpath::Feature<'_>) -> PyFeature {
     PyFeature {

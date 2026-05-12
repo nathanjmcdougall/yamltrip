@@ -34,9 +34,4 @@ mod _core {
     fn apply_patches(source: &str, patches: Vec<PyPatch>) -> PyResult<String> {
         ops::apply_patches(source, patches)
     }
-
-    #[pyfunction]
-    fn parse_value(py: Python<'_>, source: &str, route: &PyRoute) -> PyResult<PyObject> {
-        document::parse_value(py, source, route)
-    }
 }

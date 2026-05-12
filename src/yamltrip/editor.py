@@ -26,6 +26,7 @@ class Editor:
         self._path = Path(path)
         self._original: Document | None = None
         self._document: Document | None = None
+        self._mtime: float | None = None
 
     def __repr__(self) -> str:
         """Return a developer-friendly representation."""
@@ -36,6 +37,7 @@ class Editor:
         if not self._path.exists():
             msg = f"File not found: {self._path}"
             raise FileNotFoundError(msg)
+        self._mtime = self._path.stat().st_mtime
         source = self._path.read_text(encoding="utf-8")
         self._original = Document(source)
         self._document = Document(source)
@@ -46,9 +48,14 @@ class Editor:
     ) -> None:
         """Write changes on success, discard on exception."""
         if exc_type is None and self._document is not None:
+            current_mtime = self._path.stat().st_mtime
+            if current_mtime != self._mtime:
+                msg = f"File was modified externally: {self._path}"
+                raise RuntimeError(msg)
             self._path.write_text(self._document.dumps(), encoding="utf-8")
         self._original = None
         self._document = None
+        self._mtime = None
 
     @property
     def original(self) -> Document:

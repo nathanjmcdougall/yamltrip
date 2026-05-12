@@ -87,11 +87,6 @@ class Document:
         """Retrieve the parsed value at the given path."""
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)
-
-        if not self._core_doc.query_exists(route):
-            msg = f"Path not found: {normalized}"
-            raise QueryError(msg)
-
         try:
             return self._core_doc.parse_value(route)
         except (ValueError, KeyError) as e:
@@ -106,9 +101,6 @@ class Document:
     def query(self, *keys: KeyPart) -> _core.Feature:
         """Return the Feature at the given path."""
         route = _make_route(keys)
-        if not self._core_doc.query_exists(route):
-            msg = f"Path not found: {keys}"
-            raise QueryError(msg)
         try:
             feature = self._core_doc.query_exact(route)
         except KeyError as e:

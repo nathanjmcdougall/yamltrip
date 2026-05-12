@@ -35,6 +35,14 @@ def _make_route(keys: Sequence[KeyPart]) -> _core.Route:
     return _core.Route(list(keys))
 
 
+def _apply(source: str, patches: list[_core.Patch]) -> str:
+    """Apply patches, converting Rust errors to PatchError."""
+    try:
+        return _core.apply_patches(source, patches)
+    except RuntimeError as e:
+        raise PatchError(str(e)) from None
+
+
 class Document:
     """An immutable YAML document.
 
@@ -73,7 +81,10 @@ class Document:
             msg = f"Path not found: {normalized}"
             raise QueryError(msg)
 
-        return _core.parse_value(self._source, route)
+        try:
+            return _core.parse_value(self._source, route)
+        except (ValueError, KeyError) as e:
+            raise QueryError(str(e)) from None
 
     def __contains__(self, keys: Any) -> bool:
         """Check whether a path exists in the document."""
@@ -90,7 +101,10 @@ class Document:
         if not self._core_doc.query_exists(route):
             msg = f"Path not found: {keys}"
             raise QueryError(msg)
-        feature = self._core_doc.query_exact(route)
+        try:
+            feature = self._core_doc.query_exact(route)
+        except KeyError as e:
+            raise QueryError(str(e)) from None
         if feature is None:
             msg = f"Path has no value: {keys}"
             raise QueryError(msg)
@@ -117,7 +131,7 @@ class Document:
 
         op = _core.Op.replace(value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _core.apply_patches(self._source, [patch])
+        new_source = _apply(self._source, [patch])
         return Document(new_source)
 
     def add(self, *keys: KeyPart, key: str, value: Any) -> Document:
@@ -131,7 +145,7 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.add(key, value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _core.apply_patches(self._source, [patch])
+        new_source = _apply(self._source, [patch])
         return Document(new_source)
 
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
@@ -140,7 +154,7 @@ class Document:
             route = _make_route(())
             op = _core.Op.replace(value)
             patch = _core.Patch(route=route, operation=op)
-            new_source = _core.apply_patches(self._source, [patch])
+            new_source = _apply(self._source, [patch])
             return Document(new_source)
 
         full_route = _make_route(keys)
@@ -163,7 +177,7 @@ class Document:
                 else:
                     op = _core.Op.add(merge_key, nested_value)
                 patch = _core.Patch(route=route, operation=op)
-                new_source = _core.apply_patches(self._source, [patch])
+                new_source = _apply(self._source, [patch])
                 return Document(new_source)
 
         # No path exists — add at root
@@ -174,7 +188,7 @@ class Document:
         route = _make_route(())
         op = _core.Op.add(root_key, nested_value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _core.apply_patches(self._source, [patch])
+        new_source = _apply(self._source, [patch])
         return Document(new_source)
 
     def remove(self, *keys: KeyPart, prune: bool = False) -> Document:
@@ -182,7 +196,7 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.remove()
         patch = _core.Patch(route=route, operation=op)
-        new_source = _core.apply_patches(self._source, [patch])
+        new_source = _apply(self._source, [patch])
         doc = Document(new_source)
 
         if prune and len(keys) > 1:
@@ -207,7 +221,7 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.append(value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _core.apply_patches(self._source, [patch])
+        new_source = _apply(self._source, [patch])
         return Document(new_source)
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
@@ -234,6 +248,6 @@ class Document:
             route = _make_route((*keys, idx))
             op = _core.Op.remove()
             patch = _core.Patch(route=route, operation=op)
-            new_source = _core.apply_patches(doc._source, [patch])
+            new_source = _apply(doc._source, [patch])
             doc = Document(new_source)
         return doc

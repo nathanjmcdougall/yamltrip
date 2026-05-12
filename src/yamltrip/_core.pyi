@@ -1,6 +1,6 @@
 """Type stubs for the yamltrip._core native module."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 class Location:
     start: int
@@ -9,11 +9,14 @@ class Location:
     def __repr__(self) -> str: ...
 
 class FeatureKind:
-    Scalar: FeatureKind
-    BlockMapping: FeatureKind
-    FlowMapping: FeatureKind
-    BlockSequence: FeatureKind
-    FlowSequence: FeatureKind
+    Scalar: ClassVar[FeatureKind]
+    BlockMapping: ClassVar[FeatureKind]
+    FlowMapping: ClassVar[FeatureKind]
+    BlockSequence: ClassVar[FeatureKind]
+    FlowSequence: ClassVar[FeatureKind]
+    def __eq__(self, other: object) -> bool: ...
+    def __int__(self) -> int: ...
+    def __repr__(self) -> str: ...
 
 class Component:
     @staticmethod

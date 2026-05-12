@@ -99,10 +99,7 @@ class Document:
 
     def __contains__(self, keys: Any) -> bool:
         """Check whether a path exists in the document."""
-        try:
-            normalized = _normalize_keys(keys)
-        except TypeError:
-            return False
+        normalized = _normalize_keys(keys)
         route = _make_route(normalized)
         return self._core_doc.query_exists(route)
 

@@ -37,6 +37,17 @@ skip = ["target"]
 
 [tool.deptry]
 ignore_notebooks = false
+
+[tool.importlinter]
+root_packages = ["yamltrip"]
+
+[[tool.importlinter.contracts]]
+name = "yamltrip"
+type = "layers"
+layers = ["errors"]
+containers = ["yamltrip"]
+exhaustive = true
+exhaustive_ignores = ["document", "editor"]
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
@@ -45,6 +56,7 @@ build-backend = "maturin"
 dev = [
     "codespell>=2.4.2",
     "deptry>=0.25.1",
+    "import-linter>=2.11",
     "prek>=0.3.13",
     "pytest>=9.0.3",
     "ruff>=0.15.12",

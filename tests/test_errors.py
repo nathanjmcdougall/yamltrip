@@ -1,3 +1,5 @@
+import pytest
+
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
@@ -28,7 +30,6 @@ class TestErrorHierarchy:
         assert issubclass(KeyMissingError, PatchError)
 
     def test_raise_and_catch_base(self):
-        import pytest
-
-        with pytest.raises(YAMLTripError):
-            raise KeyExistsError("key already exists")
+        msg = "key already exists"
+        with pytest.raises(YAMLTripError, match=msg):
+            raise KeyExistsError(msg)

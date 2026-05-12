@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from yamltrip import _core
 from yamltrip.errors import (
@@ -15,6 +14,9 @@ from yamltrip.errors import (
     QueryError,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 KeyPart = str | int
 
 
@@ -24,7 +26,8 @@ def _normalize_keys(keys: Any) -> tuple[KeyPart, ...]:
         return (keys,)
     if isinstance(keys, tuple):
         return keys
-    raise TypeError(f"Keys must be str, int, or tuple, got {type(keys).__name__}")
+    msg = f"Keys must be str, int, or tuple, got {type(keys).__name__}"
+    raise TypeError(msg)
 
 
 def _make_route(keys: Sequence[KeyPart]) -> _core.Route:
@@ -39,6 +42,7 @@ class Document:
     """
 
     def __init__(self, source: str) -> None:
+        """Parse a YAML string into an immutable document."""
         try:
             self._core_doc = _core.Document(source)
         except Exception as e:
@@ -51,16 +55,19 @@ class Document:
         return self._source
 
     def __getitem__(self, keys: Any) -> Any:
+        """Retrieve the parsed value at the given path."""
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)
 
         if not self._core_doc.query_exists(route):
-            raise QueryError(f"Path not found: {normalized}")
+            msg = f"Path not found: {normalized}"
+            raise QueryError(msg)
 
         route = _make_route(normalized)
         return _core.parse_value(self._source, route)
 
     def __contains__(self, keys: Any) -> bool:
+        """Check whether a path exists in the document."""
         try:
             normalized = _normalize_keys(keys)
         except TypeError:
@@ -69,29 +76,36 @@ class Document:
         return self._core_doc.query_exists(route)
 
     def query(self, *keys: KeyPart) -> _core.Feature:
+        """Return the Feature at the given path."""
         route = _make_route(keys)
         if not self._core_doc.query_exists(route):
-            raise QueryError(f"Path not found: {keys}")
+            msg = f"Path not found: {keys}"
+            raise QueryError(msg)
         route = _make_route(keys)
         feature = self._core_doc.query_exact(route)
         if feature is None:
-            raise QueryError(f"Path has no value: {keys}")
+            msg = f"Path has no value: {keys}"
+            raise QueryError(msg)
         return feature
 
     def extract(self, feature: _core.Feature) -> str:
+        """Extract the raw YAML text for a feature."""
         return self._core_doc.extract(feature)
 
     def dumps(self) -> str:
+        """Return the YAML source text."""
         return self._source
 
     def dump(self, path: str | Path) -> None:
+        """Write the YAML source text to a file."""
         Path(path).write_text(self._source, encoding="utf-8")
 
     def replace(self, *keys: KeyPart, value: Any) -> Document:
         """Replace value at an existing path. Raises KeyMissingError if missing."""
         route = _make_route(keys)
         if not self._core_doc.query_exists(route):
-            raise KeyMissingError(f"Path not found: {keys}")
+            msg = f"Path not found: {keys}"
+            raise KeyMissingError(msg)
 
         route = _make_route(keys)
         op = _core.Op.replace(value)
@@ -104,7 +118,8 @@ class Document:
         full_path = (*keys, key)
         check_route = _make_route(full_path)
         if self._core_doc.query_exists(check_route):
-            raise KeyExistsError(f"Key already exists: {full_path}")
+            msg = f"Key already exists: {full_path}"
+            raise KeyExistsError(msg)
 
         route = _make_route(keys)
         op = _core.Op.add(key, value)
@@ -199,7 +214,8 @@ class Document:
         """Remove all occurrences of given values from the sequence at path."""
         current_list = self[keys]
         if not isinstance(current_list, list):
-            raise PatchError(f"Value at {keys} is not a list")
+            msg = f"Value at {keys} is not a list"
+            raise PatchError(msg)
 
         indices_to_remove = sorted(
             [i for i, item in enumerate(current_list) if item in values],

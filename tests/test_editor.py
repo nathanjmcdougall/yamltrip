@@ -24,7 +24,8 @@ class TestEditorContextManager:
     def test_no_write_on_exception(self, yaml_file):
         with pytest.raises(RuntimeError, match="boom"), Editor(yaml_file) as editor:  # noqa: PT012
             editor.replace("name", value="bar")
-            raise RuntimeError("boom")
+            msg = "boom"
+            raise RuntimeError(msg)
         content = yaml_file.read_text(encoding="utf-8")
         assert "foo" in content
         assert "bar" not in content

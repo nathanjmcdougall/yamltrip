@@ -1,5 +1,6 @@
 import pytest
 
+from yamltrip._core import FeatureKind
 from yamltrip.document import Document
 from yamltrip.errors import (
     KeyExistsError,
@@ -80,8 +81,6 @@ class TestDocumentContains:
 
 class TestDocumentInspection:
     def test_query_returns_feature(self):
-        from yamltrip._core import FeatureKind
-
         doc = Document("name: foo")
         feature = doc.query("name")
         assert feature.kind == FeatureKind.Scalar

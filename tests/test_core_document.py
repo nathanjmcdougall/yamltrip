@@ -1,6 +1,6 @@
 import pytest
 
-from yamltrip._core import Document, Route
+from yamltrip._core import Document, FeatureKind, Route
 
 
 class TestDocumentParsing:
@@ -62,16 +62,12 @@ class TestDocumentQuery:
 
 class TestDocumentFeatureKind:
     def test_scalar_kind(self):
-        from yamltrip._core import FeatureKind
-
         doc = Document("name: foo")
         route = Route(["name"])
         feature = doc.query_exact(route)
         assert feature.kind == FeatureKind.Scalar
 
     def test_mapping_kind(self):
-        from yamltrip._core import FeatureKind
-
         doc = Document("a:\n  b: 1")
         route = Route(["a"])
         feature = doc.query_exact(route)

@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString};
+use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString, PyTuple};
 use serde_yaml::Value;
 
 /// Convert a Python object to a serde_yaml::Value.
@@ -29,6 +29,10 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     } else if obj.is_instance_of::<PyList>() {
         let list = obj.downcast::<PyList>()?;
         let items: PyResult<Vec<Value>> = list.iter().map(|item| py_to_yaml_value(&item)).collect();
+        Ok(Value::Sequence(items?))
+    } else if obj.is_instance_of::<PyTuple>() {
+        let tuple = obj.downcast::<PyTuple>()?;
+        let items: PyResult<Vec<Value>> = tuple.iter().map(|item| py_to_yaml_value(&item)).collect();
         Ok(Value::Sequence(items?))
     } else if obj.is_instance_of::<PyDict>() {
         let dict = obj.downcast::<PyDict>()?;

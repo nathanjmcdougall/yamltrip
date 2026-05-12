@@ -1,10 +1,12 @@
 mod convert;
 mod document;
+mod ops;
 mod types;
 
 use pyo3::prelude::*;
 
 use document::PyDocument;
+use ops::{PyOp, PyPatch};
 use types::{PyComponent, PyFeature, PyFeatureKind, PyLocation, PyRoute};
 
 #[pymodule]
@@ -23,4 +25,13 @@ mod _core {
     use super::PyFeature;
     #[pymodule_export]
     use super::PyDocument;
+    #[pymodule_export]
+    use super::PyOp;
+    #[pymodule_export]
+    use super::PyPatch;
+
+    #[pyfunction]
+    fn apply_patches(source: &str, patches: Vec<PyPatch>) -> PyResult<String> {
+        ops::apply_patches(source, patches)
+    }
 }

@@ -9,6 +9,7 @@ from yamltrip.document import Document
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from types import TracebackType
 
     from yamltrip._core import Feature
     from yamltrip.document import KeyPart
@@ -44,7 +45,10 @@ class Editor:
         return self
 
     def __exit__(
-        self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Write changes on success, discard on exception."""
         if exc_type is None and self._document is not None:

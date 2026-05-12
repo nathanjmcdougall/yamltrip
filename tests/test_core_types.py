@@ -12,6 +12,14 @@ class TestLocation:
         assert "0" in repr(loc)
         assert "5" in repr(loc)
 
+    def test_eq(self):
+        assert Location(0, 5) == Location(0, 5)
+        assert Location(0, 5) != Location(0, 6)
+
+    def test_hash(self):
+        s = {Location(0, 5), Location(0, 5), Location(0, 6)}
+        assert len(s) == 2
+
 
 class TestFeatureKind:
     def test_variants_exist(self):
@@ -22,6 +30,10 @@ class TestFeatureKind:
         assert FeatureKind.BlockSequence is not None
         assert FeatureKind.FlowSequence is not None
 
+    def test_hash(self):
+        s = {FeatureKind.Scalar, FeatureKind.BlockMapping, FeatureKind.Scalar}
+        assert len(s) == 2
+
 
 class TestComponent:
     def test_key(self):
@@ -31,6 +43,16 @@ class TestComponent:
     def test_index(self):
         c = Component.index(0)
         assert repr(c) == "Component.index(0)"
+
+    def test_eq(self):
+        assert Component.key("a") == Component.key("a")
+        assert Component.key("a") != Component.key("b")
+        assert Component.index(0) == Component.index(0)
+        assert Component.key("0") != Component.index(0)
+
+    def test_hash(self):
+        s = {Component.key("a"), Component.key("a"), Component.key("b")}
+        assert len(s) == 2
 
 
 class TestRoute:
@@ -45,3 +67,11 @@ class TestRoute:
     def test_empty(self):
         route = Route([])
         assert len(route) == 0
+
+    def test_eq(self):
+        assert Route(["a", "b"]) == Route(["a", "b"])
+        assert Route(["a"]) != Route(["a", "b"])
+
+    def test_hash(self):
+        s = {Route(["a", "b"]), Route(["a", "b"]), Route(["a"])}
+        assert len(s) == 2

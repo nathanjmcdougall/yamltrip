@@ -1,8 +1,11 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use pyo3::prelude::*;
 
 /// Byte offset span in the YAML source.
 #[pyclass(name = "Location", module = "yamltrip._core")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyLocation {
     #[pyo3(get)]
     pub start: usize,
@@ -20,6 +23,17 @@ impl PyLocation {
     fn __repr__(&self) -> String {
         format!("Location(start={}, end={})", self.start, self.end)
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.start == other.start && self.end == other.end
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.start.hash(&mut hasher);
+        self.end.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 impl From<yamlpath::Location> for PyLocation {
@@ -32,8 +46,8 @@ impl From<yamlpath::Location> for PyLocation {
 }
 
 /// The kind of a YAML feature.
-#[pyclass(name = "FeatureKind", module = "yamltrip._core", eq, eq_int)]
-#[derive(Clone, Debug, PartialEq)]
+#[pyclass(name = "FeatureKind", module = "yamltrip._core", frozen, eq, eq_int, hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PyFeatureKind {
     Scalar,
     BlockMapping,
@@ -56,7 +70,7 @@ impl From<yamlpath::FeatureKind> for PyFeatureKind {
 
 /// A single route component — either a mapping key or a sequence index.
 #[pyclass(name = "Component", module = "yamltrip._core")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PyComponent {
     Key { name: String },
     Index { index: usize },
@@ -82,11 +96,25 @@ impl PyComponent {
             Self::Index { index } => format!("Component.index({index})"),
         }
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Key { name: a }, Self::Key { name: b }) => a == b,
+            (Self::Index { index: a }, Self::Index { index: b }) => a == b,
+            _ => false,
+        }
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 /// A path into a YAML document.
 #[pyclass(name = "Route", module = "yamltrip._core")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyRoute {
     pub components: Vec<PyComponent>,
 }
@@ -119,6 +147,16 @@ impl PyRoute {
         let parts: Vec<String> = self.components.iter().map(|c| c.__repr__()).collect();
         format!("Route([{}])", parts.join(", "))
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.components == other.components
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.components.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 impl PyRoute {
@@ -138,7 +176,7 @@ impl PyRoute {
 
 /// The result of a YAML path query.
 #[pyclass(name = "Feature", module = "yamltrip._core")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyFeature {
     #[pyo3(get)]
     pub location: PyLocation,
@@ -158,5 +196,15 @@ impl PyFeature {
             self.location.__repr__(),
             self.kind
         )
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self == other
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 }

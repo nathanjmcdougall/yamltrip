@@ -53,7 +53,7 @@ class Document:
         """Parse a YAML string into an immutable document."""
         try:
             self._core_doc = _core.Document(source)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             raise ParseError(str(e)) from None
         self._source = source
 

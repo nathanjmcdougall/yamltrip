@@ -183,7 +183,7 @@ class Document:
                 parent_keys = keys[:depth]
                 if parent_keys in doc:
                     parent_val = doc[parent_keys]
-                    if parent_val in (None, {}, []):
+                    if parent_val is None or parent_val in ({}, []):
                         doc = doc.remove(*parent_keys)
                     else:
                         break

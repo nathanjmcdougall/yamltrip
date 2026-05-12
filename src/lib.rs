@@ -1,8 +1,10 @@
 mod convert;
+mod document;
 mod types;
 
 use pyo3::prelude::*;
 
+use document::PyDocument;
 use types::{PyComponent, PyFeature, PyFeatureKind, PyLocation, PyRoute};
 
 #[pymodule]
@@ -19,4 +21,6 @@ mod _core {
     use super::PyRoute;
     #[pymodule_export]
     use super::PyFeature;
+    #[pymodule_export]
+    use super::PyDocument;
 }

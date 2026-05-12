@@ -114,6 +114,18 @@ class Document:
             raise QueryError(msg)
         return feature
 
+    def query_pretty(self, *keys: KeyPart) -> _core.Feature:
+        """Return a Feature with context (surrounding structure) at the path."""
+        route = _make_route(keys)
+        try:
+            return self._core_doc.query_pretty(route)
+        except KeyError as e:
+            raise QueryError(str(e)) from None
+
+    def has_anchors(self) -> bool:
+        """Check whether the document contains YAML anchors (&anchor/*alias)."""
+        return self._core_doc.has_anchors()
+
     def extract(self, feature: _core.Feature) -> str:
         """Extract the raw YAML text for a feature."""
         return self._core_doc.extract(feature)

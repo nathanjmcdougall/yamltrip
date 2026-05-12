@@ -70,11 +70,11 @@ class TestContainsTypeError:
 class TestHasAnchors:
     def test_document_without_anchors(self):
         doc = Document("name: foo")
-        assert doc._core_doc.has_anchors() is False
+        assert doc.has_anchors() is False
 
     def test_document_with_anchors(self):
         doc = Document("defaults: &defaults\n  a: 1\noverrides:\n  <<: *defaults")
-        assert doc._core_doc.has_anchors() is True
+        assert doc.has_anchors() is True
 
 
 class TestEditorExternalModification:

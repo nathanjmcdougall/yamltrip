@@ -1,5 +1,3 @@
-from yamltrip._core import hello_from_bin
+from yamltrip._core import Component, Feature, FeatureKind, Location, Route
 
-
-def hello() -> str:
-    return hello_from_bin()
+__all__ = ["Component", "Feature", "FeatureKind", "Location", "Route"]

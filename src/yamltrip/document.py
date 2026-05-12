@@ -51,7 +51,7 @@ def _apply(source: str, patches: list[_core.Patch]) -> str:
     try:
         return _core.apply_patches(source, patches)
     except RuntimeError as e:
-        raise PatchError(str(e)) from None
+        raise PatchError(str(e)) from e
 
 
 class Document:

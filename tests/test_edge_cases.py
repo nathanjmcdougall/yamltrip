@@ -1,5 +1,7 @@
 """Tests for critical edge cases."""
 
+import os
+
 import pytest
 
 from yamltrip.document import Document
@@ -83,8 +85,10 @@ class TestEditorExternalModification:
         editor = Editor(p)
         editor.__enter__()
         editor.replace("name", value="bar")
-        # Simulate external modification
+        # Simulate external modification with a different mtime
         p.write_text("name: baz\n", encoding="utf-8")
+        stat = p.stat()
+        os.utime(p, (stat.st_atime, stat.st_mtime + 1))
         with pytest.raises(RuntimeError, match="modified externally"):
             editor.__exit__(None, None, None)
 

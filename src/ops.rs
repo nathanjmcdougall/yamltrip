@@ -73,7 +73,35 @@ impl PyOp {
     }
 
     fn __repr__(&self) -> String {
-        format!("Op({:?})", self.inner)
+        match &self.inner {
+            yamlpatch::Op::Replace(val) => {
+                format!("Op.replace({})", yaml_value_repr(val))
+            }
+            yamlpatch::Op::Add { key, value } => {
+                format!("Op.add({}, {})", yaml_value_repr(&serde_yaml::Value::String(key.clone())), yaml_value_repr(value))
+            }
+            yamlpatch::Op::Remove => "Op.remove()".to_string(),
+            yamlpatch::Op::Append { value } => {
+                format!("Op.append({})", yaml_value_repr(value))
+            }
+            yamlpatch::Op::MergeInto { key, .. } => {
+                format!("Op.merge_into({}, ...)", yaml_value_repr(&serde_yaml::Value::String(key.clone())))
+            }
+            _ => format!("Op({:?})", self.inner),
+        }
+    }
+}
+
+/// Format a serde_yaml::Value as a Python-style repr.
+fn yaml_value_repr(val: &serde_yaml::Value) -> String {
+    match val {
+        serde_yaml::Value::Null => "None".to_string(),
+        serde_yaml::Value::Bool(b) => if *b { "True" } else { "False" }.to_string(),
+        serde_yaml::Value::Number(n) => format!("{n}"),
+        serde_yaml::Value::String(s) => format!("'{s}'"),
+        serde_yaml::Value::Sequence(_) => "[...]".to_string(),
+        serde_yaml::Value::Mapping(_) => "{...}".to_string(),
+        serde_yaml::Value::Tagged(t) => yaml_value_repr(&t.value),
     }
 }
 

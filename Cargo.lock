@@ -470,7 +470,6 @@ version = "0.1.0"
 dependencies = [
  "indexmap",
  "pyo3",
- "serde",
  "serde_yaml",
  "yamlpatch",
  "yamlpath",

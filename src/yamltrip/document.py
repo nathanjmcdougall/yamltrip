@@ -63,7 +63,6 @@ class Document:
             msg = f"Path not found: {normalized}"
             raise QueryError(msg)
 
-        route = _make_route(normalized)
         return _core.parse_value(self._source, route)
 
     def __contains__(self, keys: Any) -> bool:
@@ -81,7 +80,6 @@ class Document:
         if not self._core_doc.query_exists(route):
             msg = f"Path not found: {keys}"
             raise QueryError(msg)
-        route = _make_route(keys)
         feature = self._core_doc.query_exact(route)
         if feature is None:
             msg = f"Path has no value: {keys}"
@@ -107,7 +105,6 @@ class Document:
             msg = f"Path not found: {keys}"
             raise KeyMissingError(msg)
 
-        route = _make_route(keys)
         op = _core.Op.replace(value)
         patch = _core.Patch(route=route, operation=op)
         new_source = _core.apply_patches(self._source, [patch])

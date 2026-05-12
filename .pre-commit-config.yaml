@@ -19,3 +19,9 @@ repos:
         entry: uv run --frozen --offline ty check
         language: system
         pass_filenames: false
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli

@@ -29,15 +29,22 @@ report.omit = ["*/pytest-of-*/*"]
 [tool.coverage.run]
 source = ["src"]
 relative_files = true
+
+[tool.codespell]
+ignore-regex = ["[A-Za-z0-9+/]{100,}"]
+ignore-words-list = ["..."]
+skip = ["target"]
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
 dev = [
+    "codespell>=2.4.2",
     "prek>=0.3.13",
     "pytest>=9.0.3",
     "ruff>=0.15.12",
+    "tomli>=2.4.1",
     "ty>=0.0.35",
 ]
 test = [

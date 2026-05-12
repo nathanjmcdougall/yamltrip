@@ -9,11 +9,8 @@ class TestDocumentParsing:
         assert doc.source() == "name: foo"
 
     def test_parse_invalid_raises(self):
-        # tree-sitter is lenient, so this might not raise for all invalid YAML.
-        # Test with something that yamlpath rejects. If tree-sitter doesn't
-        # reject it, adjust the test to use a different invalid input or
-        # change test to expect no raise. Verify behavior first.
-        pass  # Adjust after checking yamlpath behavior
+        with pytest.raises(ValueError, match="Failed to parse YAML"):
+            Document("{")
 
 
 class TestDocumentQuery:

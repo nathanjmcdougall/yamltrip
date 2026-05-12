@@ -35,6 +35,17 @@ def _make_route(keys: Sequence[KeyPart]) -> _core.Route:
     return _core.Route(list(keys))
 
 
+def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
+    """Raise PatchError if any key is an int (cannot create sequences via upsert)."""
+    for k in keys:
+        if isinstance(k, int):
+            msg = (
+                f"Cannot create intermediate structure with integer key {k}; "
+                "only string keys can create new mappings"
+            )
+            raise PatchError(msg)
+
+
 def _apply(source: str, patches: list[_core.Patch]) -> str:
     """Apply patches, converting Rust errors to PatchError."""
     try:
@@ -167,10 +178,11 @@ class Document:
             ancestor_route = _make_route(ancestor_keys)
             if self._core_doc.query_exists(ancestor_route):
                 remaining_keys = keys[depth:]
+                _check_no_int_keys_for_creation(remaining_keys)
                 nested_value = value
                 for k in reversed(remaining_keys[1:]):
                     nested_value = {k: nested_value}
-                merge_key = str(remaining_keys[0])
+                merge_key = remaining_keys[0]
                 route = _make_route(ancestor_keys)
                 if isinstance(nested_value, dict):
                     op = _core.Op.merge_into(merge_key, nested_value)
@@ -181,10 +193,11 @@ class Document:
                 return Document(new_source)
 
         # No path exists — add at root
+        _check_no_int_keys_for_creation(keys)
         nested_value = value
         for k in reversed(keys[1:]):
-            nested_value = {str(k): nested_value}
-        root_key = str(keys[0])
+            nested_value = {k: nested_value}
+        root_key = keys[0]
         route = _make_route(())
         op = _core.Op.add(root_key, nested_value)
         patch = _core.Patch(route=route, operation=op)

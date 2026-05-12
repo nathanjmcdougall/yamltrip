@@ -83,6 +83,10 @@ class Document:
         """Hash based on source text."""
         return hash(self._source)
 
+    def __repr__(self) -> str:
+        """Return a developer-friendly representation."""
+        return f"Document(<{len(self._source)} bytes>)"
+
     def __getitem__(self, keys: Any) -> Any:
         """Retrieve the parsed value at the given path."""
         normalized = _normalize_keys(keys)

@@ -27,6 +27,10 @@ class Editor:
         self._original: Document | None = None
         self._document: Document | None = None
 
+    def __repr__(self) -> str:
+        """Return a developer-friendly representation."""
+        return f"Editor('{self._path}')"
+
     def __enter__(self) -> Editor:
         """Read the file and enter the editing context."""
         if not self._path.exists():

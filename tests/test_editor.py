@@ -57,14 +57,14 @@ class TestEditorOperations:
     def test_remove(self, yaml_file):
         with Editor(yaml_file) as editor:
             editor.remove("age")
-            assert ("age",) not in editor
+            assert "age" not in editor
 
     def test_prune_remove(self, yaml_file):
         p = yaml_file.parent / "nested.yml"
         p.write_text("a:\n  b:\n    c: 1\n", encoding="utf-8")
         with Editor(p) as editor:
             editor.prune_remove("a", "b", "c")
-            assert ("a",) not in editor
+            assert "a" not in editor
 
     def test_append(self, yaml_file):
         with Editor(yaml_file) as editor:
@@ -84,8 +84,8 @@ class TestEditorOperations:
 
     def test_contains(self, yaml_file):
         with Editor(yaml_file) as editor:
-            assert ("name",) in editor
-            assert ("missing",) not in editor
+            assert "name" in editor
+            assert "missing" not in editor
 
     def test_document_attribute(self, yaml_file):
         with Editor(yaml_file) as editor:

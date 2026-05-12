@@ -79,11 +79,11 @@ class TestDocumentGetitem:
 class TestDocumentContains:
     def test_key_exists(self):
         doc = Document("name: foo")
-        assert ("name",) in doc
+        assert "name" in doc
 
     def test_key_missing(self):
         doc = Document("name: foo")
-        assert ("missing",) not in doc
+        assert "missing" not in doc
 
     def test_nested_key_exists(self):
         doc = Document("a:\n  b: 1")
@@ -173,7 +173,7 @@ class TestDocumentRemove:
     def test_remove_key(self):
         doc = Document("name: foo\nage: 30")
         doc2 = doc.remove("age")
-        assert ("age",) not in doc2
+        assert "age" not in doc2
         assert doc2["name"] == "foo"
 
 
@@ -181,12 +181,12 @@ class TestDocumentPruneRemove:
     def test_prune_remove(self):
         doc = Document("a:\n  b:\n    c: 1")
         doc2 = doc.prune_remove("a", "b", "c")
-        assert ("a",) not in doc2
+        assert "a" not in doc2
 
     def test_remove_with_prune_flag(self):
         doc = Document("a:\n  b:\n    c: 1")
         doc2 = doc.remove("a", "b", "c", prune=True)
-        assert ("a",) not in doc2
+        assert "a" not in doc2
 
 
 class TestDocumentAppend:

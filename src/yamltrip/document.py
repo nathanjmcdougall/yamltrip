@@ -82,7 +82,7 @@ class Document:
             raise QueryError(msg)
 
         try:
-            return _core.parse_value(self._source, route)
+            return self._core_doc.parse_value(route)
         except (ValueError, KeyError) as e:
             raise QueryError(str(e)) from None
 

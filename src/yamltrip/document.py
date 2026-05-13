@@ -175,6 +175,29 @@ class Document:
         patch = _core.Patch(route=route, operation=op)
         return self._apply_patches([patch])
 
+    def _create_at(
+        self,
+        parent_keys: tuple[KeyPart, ...],
+        child_keys: tuple[KeyPart, ...],
+        value: Any,
+    ) -> Document:
+        """Create a nested value under parent_keys using child_keys."""
+        _check_no_int_keys_for_creation(child_keys)
+        first_key = child_keys[0]
+        if not isinstance(first_key, str):
+            msg = f"Expected string key, got {type(first_key).__name__}"
+            raise TypeError(msg)
+        nested_value = value
+        for k in reversed(child_keys[1:]):
+            nested_value = {k: nested_value}
+        route = _make_route(parent_keys)
+        if isinstance(nested_value, dict):
+            op = _core.Op.merge_into(first_key, nested_value)
+        else:
+            op = _core.Op.add(first_key, nested_value)
+        patch = _core.Patch(route=route, operation=op)
+        return self._apply_patches([patch])
+
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
         """Replace if exists, create (with intermediate mappings) if not."""
         if not keys:
@@ -192,36 +215,10 @@ class Document:
             ancestor_keys = keys[:depth]
             ancestor_route = _make_route(ancestor_keys)
             if self._core_doc.query_exists(ancestor_route):
-                remaining_keys = keys[depth:]
-                _check_no_int_keys_for_creation(remaining_keys)
-                merge_key = remaining_keys[0]
-                if not isinstance(merge_key, str):
-                    msg = f"Expected string key, got {type(merge_key).__name__}"
-                    raise TypeError(msg)
-                nested_value = value
-                for k in reversed(remaining_keys[1:]):
-                    nested_value = {k: nested_value}
-                route = _make_route(ancestor_keys)
-                if isinstance(nested_value, dict):
-                    op = _core.Op.merge_into(merge_key, nested_value)
-                else:
-                    op = _core.Op.add(merge_key, nested_value)
-                patch = _core.Patch(route=route, operation=op)
-                return self._apply_patches([patch])
+                return self._create_at(ancestor_keys, keys[depth:], value)
 
         # No path exists — add at root
-        _check_no_int_keys_for_creation(keys)
-        root_key = keys[0]
-        if not isinstance(root_key, str):
-            msg = f"Expected string key, got {type(root_key).__name__}"
-            raise TypeError(msg)
-        nested_value = value
-        for k in reversed(keys[1:]):
-            nested_value = {k: nested_value}
-        route = _make_route(())
-        op = _core.Op.add(root_key, nested_value)
-        patch = _core.Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        return self._create_at((), keys, value)
 
     def remove(self, *keys: KeyPart, prune: bool = False) -> Document:
         """Remove the key/index at path."""

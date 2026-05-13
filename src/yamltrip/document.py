@@ -78,7 +78,7 @@ class Document:
         try:
             core_doc = self._core_doc.apply_patches(patches)
         except RuntimeError as e:
-            raise PatchError(str(e)) from e
+            raise PatchError(str(e)) from None
         return Document._from_core(core_doc)
 
     @property

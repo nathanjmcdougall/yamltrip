@@ -111,7 +111,10 @@ fn yaml_value_repr(val: &serde_yaml::Value) -> String {
         serde_yaml::Value::Null => "None".to_string(),
         serde_yaml::Value::Bool(b) => if *b { "True" } else { "False" }.to_string(),
         serde_yaml::Value::Number(n) => format!("{n}"),
-        serde_yaml::Value::String(s) => format!("'{s}'"),
+        serde_yaml::Value::String(s) => {
+            let escaped = s.replace('\\', "\\\\").replace('\'', "\\'");
+            format!("'{escaped}'")
+        },
         serde_yaml::Value::Sequence(_) => "[...]".to_string(),
         serde_yaml::Value::Mapping(_) => "{...}".to_string(),
         serde_yaml::Value::Tagged(t) => yaml_value_repr(&t.value),
@@ -156,4 +159,38 @@ pub fn apply_patches(source: &str, patches: Vec<PyPatch>) -> PyResult<String> {
     })?;
 
     Ok(result.source().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_yaml_value_repr_string_plain() {
+        let val = serde_yaml::Value::String("hello".to_string());
+        assert_eq!(yaml_value_repr(&val), "'hello'");
+    }
+
+    #[test]
+    fn test_yaml_value_repr_string_with_single_quote() {
+        let val = serde_yaml::Value::String("it's".to_string());
+        assert_eq!(yaml_value_repr(&val), r"'it\'s'");
+    }
+
+    #[test]
+    fn test_yaml_value_repr_string_with_backslash() {
+        let val = serde_yaml::Value::String(r"a\b".to_string());
+        assert_eq!(yaml_value_repr(&val), r"'a\\b'");
+    }
+
+    #[test]
+    fn test_yaml_value_repr_null() {
+        assert_eq!(yaml_value_repr(&serde_yaml::Value::Null), "None");
+    }
+
+    #[test]
+    fn test_yaml_value_repr_bool() {
+        assert_eq!(yaml_value_repr(&serde_yaml::Value::Bool(true)), "True");
+        assert_eq!(yaml_value_repr(&serde_yaml::Value::Bool(false)), "False");
+    }
 }

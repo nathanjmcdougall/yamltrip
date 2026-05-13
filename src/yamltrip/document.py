@@ -59,6 +59,9 @@ class Document:
     Two documents with equivalent YAML but different formatting (e.g. extra
     whitespace) are considered unequal. This is intentional for a round-tripping
     library where formatting is significant.
+
+    Each instance holds a native tree-sitter parse tree plus a copy of the
+    source text.  Memory is freed when the Python object is garbage-collected.
     """
 
     def __init__(self, source: str) -> None:

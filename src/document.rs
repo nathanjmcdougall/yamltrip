@@ -78,7 +78,11 @@ impl PyDocument {
             ));
         }
 
-        // For root-level, parse entire document
+        // For root-level, parse entire document.
+        // Note: tree-sitter gives us the AST structure, but not parsed scalar
+        // values, so we extract the raw YAML substring and re-parse it with
+        // serde_yaml. The dedenting is needed because serde_yaml expects
+        // root-level indentation.
         let yaml_str = if route.components.is_empty() {
             source.to_string()
         } else {
@@ -86,12 +90,14 @@ impl PyDocument {
                 Ok(Some(feature)) => {
                     let span = feature.location.byte_span;
                     let raw = &source[span.0..span.1];
-                    // Calculate column offset of the value start to dedent
-                    // subsequent lines that carry the original indentation.
-                    let col = source[..span.0]
+                    // Calculate the column offset (in bytes) of the value
+                    // start relative to the beginning of its line, so we can
+                    // dedent continuation lines.
+                    let line_start = source[..span.0]
                         .rfind('\n')
-                        .map(|nl| span.0 - nl - 1)
-                        .unwrap_or(span.0);
+                        .map(|nl| nl + 1)
+                        .unwrap_or(0);
+                    let col = span.0 - line_start;
                     if col == 0 {
                         raw.to_string()
                     } else {

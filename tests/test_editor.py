@@ -91,3 +91,49 @@ class TestEditorOperations:
         with Editor(yaml_file) as editor:
             doc = editor.document
             assert doc["name"] == "foo"
+
+    def test_add(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.add(key="color", value="red")
+            assert editor["color"] == "red"
+
+    def test_extend_list(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.extend_list("items", values=["c", "d"])
+            result = editor["items"]
+            assert "c" in result
+            assert "d" in result
+
+    def test_remove_from_list(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.remove_from_list("items", values=["a"])
+            result = editor["items"]
+            assert "a" not in result
+            assert "b" in result
+
+    def test_query(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            feature = editor.query("name")
+            assert feature is not None
+
+    def test_extract(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            feature = editor.query("name")
+            text = editor.extract(feature)
+            assert "foo" in text
+
+
+class TestEditorGuards:
+    def test_original_outside_context(self, yaml_file):
+        editor = Editor(yaml_file)
+        with pytest.raises(RuntimeError, match="context manager"):
+            _ = editor.original
+
+    def test_document_outside_context(self, yaml_file):
+        editor = Editor(yaml_file)
+        with pytest.raises(RuntimeError, match="context manager"):
+            _ = editor.document
+
+    def test_repr(self, yaml_file):
+        editor = Editor(yaml_file)
+        assert "Editor(" in repr(editor)

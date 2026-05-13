@@ -39,8 +39,9 @@ class Editor:
             msg = f"File not found: {self._path}"
             raise FileNotFoundError(msg)
         source = self._path.read_text(encoding="utf-8")
+        doc = Document(source)
         self._original_source = source
-        self._original = Document(source)
+        self._original = doc
         self._document = Document(source)
         return self
 

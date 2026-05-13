@@ -1,0 +1,15 @@
+[importlinter]
+root_packages =
+    yamltrip
+
+[importlinter:contract:0]
+name = yamltrip
+type = layers
+layers =
+    errors
+containers =
+    yamltrip
+exhaustive = True
+exhaustive_ignores =
+    document
+    editor

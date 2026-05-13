@@ -72,14 +72,3 @@ report.exclude_also = [
   "raise NotImplementedError",
 ]
 report.omit = [ "*/pytest-of-*/*" ]
-
-[tool.importlinter]
-root_packages = [ "yamltrip" ]
-
-[[tool.importlinter.contracts]]
-name = "yamltrip"
-type = "layers"
-layers = [ "errors" ]
-containers = [ "yamltrip" ]
-exhaustive = true
-exhaustive_ignores = [ "document", "editor" ]

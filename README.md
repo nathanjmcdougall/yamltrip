@@ -71,7 +71,9 @@ doc.extend_list("items", values=["d", "e"])
 doc.remove_from_list("items", values=["a"])
 
 doc.query("items")            # Feature with location info
+doc.query_pretty("items")    # Feature with surrounding context
 doc.extract(feature)          # raw YAML text for a Feature
+doc.has_anchors()             # True if anchors/aliases present
 doc.dumps()                   # full YAML source
 doc.dump("output.yml")        # write to file
 ```
@@ -107,7 +109,7 @@ All yamltrip errors inherit from `YAMLTripError`:
 - **YAML tags** (`!!omap`, `!!set`, `!!merge`, custom tags) are not
   interpreted.
 - **Anchors and aliases** (`&anchor` / `*alias`) are detected
-  (`doc._core_doc.has_anchors()`) but not resolved during value extraction.
+  (`doc.has_anchors()`) but not resolved during value extraction.
 - **No custom Python class serialization** — values are converted to/from
   basic Python types (`str`, `int`, `float`, `bool`, `None`, `list`, `dict`).
 

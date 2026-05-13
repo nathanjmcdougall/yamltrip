@@ -1,5 +1,6 @@
 use pyo3::prelude::*;
 
+use crate::ops::PyPatch;
 use crate::types::{PyFeature, PyFeatureKind, PyLocation, PyRoute};
 
 /// A parsed YAML document.
@@ -125,6 +126,24 @@ impl PyDocument {
         })?;
 
         crate::convert::yaml_value_to_py(py, &value)
+    }
+
+    /// Apply patches to this document and return a new document.
+    fn apply_patches(&self, patches: Vec<PyPatch>) -> PyResult<Self> {
+        let yaml_patches: Vec<yamlpatch::Patch<'_>> = patches
+            .iter()
+            .map(|p| yamlpatch::Patch {
+                route: p.route.to_yamlpath_route(),
+                operation: p.operation.inner.clone(),
+            })
+            .collect();
+
+        let result =
+            yamlpatch::apply_yaml_patches(&self.inner, &yaml_patches).map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
+            })?;
+
+        Ok(Self { inner: result })
     }
 }
 

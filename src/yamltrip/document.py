@@ -46,14 +46,6 @@ def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
             raise PatchError(msg)
 
 
-def _apply(source: str, patches: list[_core.Patch]) -> str:
-    """Apply patches, converting Rust errors to PatchError."""
-    try:
-        return _core.apply_patches(source, patches)
-    except RuntimeError as e:
-        raise PatchError(str(e)) from e
-
-
 class Document:
     """An immutable YAML document.
 
@@ -72,6 +64,22 @@ class Document:
         except (ValueError, RuntimeError) as e:
             raise ParseError(str(e)) from None
         self._source = source
+
+    @classmethod
+    def _from_core(cls, core_doc: _core.Document) -> Document:
+        """Construct a Document from an already-parsed _core.Document."""
+        obj = object.__new__(cls)
+        obj._core_doc = core_doc
+        obj._source = core_doc.source()
+        return obj
+
+    def _apply_patches(self, patches: list[_core.Patch]) -> Document:
+        """Apply patches to this document and return a new Document."""
+        try:
+            core_doc = self._core_doc.apply_patches(patches)
+        except RuntimeError as e:
+            raise PatchError(str(e)) from e
+        return Document._from_core(core_doc)
 
     @property
     def source(self) -> str:
@@ -152,8 +160,7 @@ class Document:
 
         op = _core.Op.replace(value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _apply(self._source, [patch])
-        return Document(new_source)
+        return self._apply_patches([patch])
 
     def add(self, *keys: KeyPart, key: str, value: Any) -> Document:
         """Add a new key to the mapping at path. Raises KeyExistsError if exists."""
@@ -166,8 +173,7 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.add(key, value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _apply(self._source, [patch])
-        return Document(new_source)
+        return self._apply_patches([patch])
 
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
         """Replace if exists, create (with intermediate mappings) if not."""
@@ -175,8 +181,7 @@ class Document:
             route = _make_route(())
             op = _core.Op.replace(value)
             patch = _core.Patch(route=route, operation=op)
-            new_source = _apply(self._source, [patch])
-            return Document(new_source)
+            return self._apply_patches([patch])
 
         full_route = _make_route(keys)
         if self._core_doc.query_exists(full_route):
@@ -200,8 +205,7 @@ class Document:
                 else:
                     op = _core.Op.add(merge_key, nested_value)
                 patch = _core.Patch(route=route, operation=op)
-                new_source = _apply(self._source, [patch])
-                return Document(new_source)
+                return self._apply_patches([patch])
 
         # No path exists — add at root
         _check_no_int_keys_for_creation(keys)
@@ -213,16 +217,14 @@ class Document:
         route = _make_route(())
         op = _core.Op.add(root_key, nested_value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _apply(self._source, [patch])
-        return Document(new_source)
+        return self._apply_patches([patch])
 
     def remove(self, *keys: KeyPart, prune: bool = False) -> Document:
         """Remove the key/index at path."""
         route = _make_route(keys)
         op = _core.Op.remove()
         patch = _core.Patch(route=route, operation=op)
-        new_source = _apply(self._source, [patch])
-        doc = Document(new_source)
+        doc = self._apply_patches([patch])
 
         if prune and len(keys) > 1:
             for depth in range(len(keys) - 1, 0, -1):
@@ -246,8 +248,7 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.append(value)
         patch = _core.Patch(route=route, operation=op)
-        new_source = _apply(self._source, [patch])
-        return Document(new_source)
+        return self._apply_patches([patch])
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""
@@ -257,8 +258,7 @@ class Document:
         patches = [
             _core.Patch(route=route, operation=_core.Op.append(v)) for v in values
         ]
-        new_source = _apply(self._source, patches)
-        return Document(new_source)
+        return self._apply_patches(patches)
 
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Remove all occurrences of given values from the sequence at path."""
@@ -293,5 +293,4 @@ class Document:
             )
             for idx in indices_to_remove
         ]
-        new_source = _apply(self._source, patches)
-        return Document(new_source)
+        return self._apply_patches(patches)

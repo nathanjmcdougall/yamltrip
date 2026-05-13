@@ -6,10 +6,13 @@ root_packages =
 name = yamltrip
 type = layers
 layers =
+    editor
+    document
     errors
 containers =
     yamltrip
 exhaustive = True
 exhaustive_ignores =
-    document
-    editor
+    _core
+ignore_imports =
+    yamltrip.document -> yamltrip

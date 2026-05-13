@@ -90,6 +90,19 @@ impl PyOp {
             _ => format!("Op({:?})", self.inner),
         }
     }
+
+    /// The kind of operation: "replace", "add", "remove", "append", or "merge_into".
+    #[getter]
+    fn kind(&self) -> &str {
+        match &self.inner {
+            yamlpatch::Op::Replace(_) => "replace",
+            yamlpatch::Op::Add { .. } => "add",
+            yamlpatch::Op::Remove => "remove",
+            yamlpatch::Op::Append { .. } => "append",
+            yamlpatch::Op::MergeInto { .. } => "merge_into",
+            _ => "unknown",
+        }
+    }
 }
 
 /// Format a serde_yaml::Value as a Python-style repr.

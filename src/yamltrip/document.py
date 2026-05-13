@@ -25,6 +25,10 @@ def _normalize_keys(keys: Any) -> tuple[KeyPart, ...]:
     if isinstance(keys, (str, int)):
         return (keys,)
     if isinstance(keys, tuple):
+        for k in keys:
+            if not isinstance(k, (str, int)):
+                msg = f"Key elements must be str or int, got {type(k).__name__}"
+                raise TypeError(msg)
         return keys
     msg = f"Keys must be str, int, or tuple, got {type(keys).__name__}"
     raise TypeError(msg)

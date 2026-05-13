@@ -24,7 +24,12 @@ def loads(source: str) -> Document:
 
 def load(path: str | Path) -> Document:
     """Read a YAML file into a Document."""
-    return Document(Path(path).read_text(encoding="utf-8"))
+    try:
+        source = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        msg = f"File is not valid UTF-8: {path}"
+        raise ParseError(msg) from None
+    return Document(source)
 
 
 def edit(path: str | Path) -> Editor:

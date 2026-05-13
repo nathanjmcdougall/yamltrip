@@ -213,3 +213,95 @@ impl PyFeature {
         hasher.finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_location_equality() {
+        let a = PyLocation { start: 0, end: 5 };
+        let b = PyLocation { start: 0, end: 5 };
+        let c = PyLocation { start: 0, end: 6 };
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_location_from_yamlpath() {
+        let loc = yamlpath::Location {
+            byte_span: (10, 20),
+            point_span: ((0, 10), (0, 20)),
+        };
+        let py_loc = PyLocation::from(loc);
+        assert_eq!(py_loc.start, 10);
+        assert_eq!(py_loc.end, 20);
+    }
+
+    #[test]
+    fn test_feature_kind_from_yamlpath() {
+        assert_eq!(
+            PyFeatureKind::from(yamlpath::FeatureKind::Scalar),
+            PyFeatureKind::Scalar
+        );
+        assert_eq!(
+            PyFeatureKind::from(yamlpath::FeatureKind::BlockMapping),
+            PyFeatureKind::BlockMapping
+        );
+        assert_eq!(
+            PyFeatureKind::from(yamlpath::FeatureKind::FlowMapping),
+            PyFeatureKind::FlowMapping
+        );
+        assert_eq!(
+            PyFeatureKind::from(yamlpath::FeatureKind::BlockSequence),
+            PyFeatureKind::BlockSequence
+        );
+        assert_eq!(
+            PyFeatureKind::from(yamlpath::FeatureKind::FlowSequence),
+            PyFeatureKind::FlowSequence
+        );
+    }
+
+    #[test]
+    fn test_component_equality() {
+        assert_eq!(
+            PyComponent::Key {
+                name: "a".to_string()
+            },
+            PyComponent::Key {
+                name: "a".to_string()
+            }
+        );
+        assert_ne!(
+            PyComponent::Key {
+                name: "a".to_string()
+            },
+            PyComponent::Index { index: 0 }
+        );
+    }
+
+    #[test]
+    fn test_route_to_yamlpath_conversion() {
+        let route = PyRoute {
+            components: vec![
+                PyComponent::Key {
+                    name: "a".to_string(),
+                },
+                PyComponent::Index { index: 0 },
+                PyComponent::Key {
+                    name: "b".to_string(),
+                },
+            ],
+        };
+        // Just verify it doesn't panic
+        let _yamlpath_route = route.to_yamlpath_route();
+    }
+
+    #[test]
+    fn test_empty_route_conversion() {
+        let route = PyRoute {
+            components: vec![],
+        };
+        let _yamlpath_route = route.to_yamlpath_route();
+    }
+}

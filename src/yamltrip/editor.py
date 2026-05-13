@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from yamltrip.document import Document
+from yamltrip.document import Document, _normalize_keys
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -42,7 +42,7 @@ class Editor:
         doc = Document(source)
         self._original_source = source
         self._original = doc
-        self._document = Document(source)
+        self._document = doc
         return self
 
     def __exit__(
@@ -51,7 +51,12 @@ class Editor:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Write changes on success, discard on exception."""
+        """Write changes on success, discard on exception.
+
+        The external-modification check is best-effort: it detects changes
+        made between ``__enter__`` and ``__exit__`` but is not atomic and
+        cannot guard against concurrent writes during the write itself.
+        """
         if exc_type is None and self._document is not None:
             current_source = self._path.read_text(encoding="utf-8")
             if current_source != self._original_source:
@@ -78,22 +83,18 @@ class Editor:
             raise RuntimeError(msg)
         return self._document
 
-    def __getitem__(self, keys: Any) -> Any:
+    def __getitem__(self, keys: object) -> Any:
         """Retrieve the parsed value at the given path."""
         return self.document[keys]
 
-    def __contains__(self, keys: Any) -> bool:
+    def __contains__(self, keys: object) -> bool:
         """Check whether a path exists in the document."""
         return keys in self.document
 
-    def __setitem__(self, keys: Any, value: Any) -> None:
+    def __setitem__(self, keys: object, value: Any) -> None:
         """Upsert a value at the given path."""
-        if isinstance(keys, (str, int)):
-            keys = (keys,)
-        elif not isinstance(keys, tuple):
-            msg = f"Keys must be str, int, or tuple, got {type(keys).__name__}"
-            raise TypeError(msg)
-        self._document = self.document.upsert(*keys, value=value)
+        normalized = _normalize_keys(keys)
+        self._document = self.document.upsert(*normalized, value=value)
 
     def replace(self, *keys: KeyPart, value: Any) -> None:
         """Replace the value at an existing path."""

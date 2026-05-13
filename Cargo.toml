@@ -15,7 +15,5 @@ crate-type = ["cdylib", "lib"]
 pyo3 = { version = "0.27.1", features = ["extension-module", "abi3-py310"] }
 yamlpath = "1"
 yamlpatch = "1"
-# TODO: Migrate to serde_yml once yamlpatch drops its serde_yaml dependency.
-# serde_yaml is deprecated/archived upstream.
 serde_yaml = "0.9"
 indexmap = "2"

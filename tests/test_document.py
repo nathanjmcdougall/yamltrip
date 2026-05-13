@@ -76,6 +76,55 @@ class TestDocumentGetitem:
         assert result == {"b": 1, "c": 2}
 
 
+class TestParseValueDedent:
+    """Tests for parse_value's dedent logic on multiline/nested YAML values."""
+
+    def test_block_literal_scalar(self):
+        source = "desc: |\n  line one\n  line two\n"
+        doc = Document(source)
+        assert doc["desc"] == "line one\nline two\n"
+
+    def test_block_folded_scalar(self):
+        source = "desc: >\n  line one\n  line two\n"
+        doc = Document(source)
+        assert doc["desc"] == "line one line two\n"
+
+    def test_block_literal_strip(self):
+        source = "desc: |-\n  line one\n  line two\n"
+        doc = Document(source)
+        assert doc["desc"] == "line one\nline two"
+
+    def test_block_literal_keep(self):
+        source = "desc: |+\n  line one\n  line two\n\n"
+        doc = Document(source)
+        assert doc["desc"] == "line one\nline two\n\n"
+
+    def test_block_scalar_with_blank_lines(self):
+        source = "desc: |\n  first\n\n  second\n"
+        doc = Document(source)
+        assert doc["desc"] == "first\n\nsecond\n"
+
+    def test_nested_block_scalar(self):
+        source = "outer:\n  inner: |\n    hello\n    world\n"
+        doc = Document(source)
+        assert doc["outer", "inner"] == "hello\nworld\n"
+
+    def test_deeply_nested_value(self):
+        source = "a:\n  b:\n    c:\n      d: deep\n"
+        doc = Document(source)
+        assert doc["a", "b", "c", "d"] == "deep"
+
+    def test_nested_mapping_value(self):
+        source = "root:\n  x: 1\n  y: 2\n"
+        doc = Document(source)
+        assert doc["root"] == {"x": 1, "y": 2}
+
+    def test_nested_sequence_value(self):
+        source = "root:\n  items:\n    - a\n    - b\n    - c\n"
+        doc = Document(source)
+        assert doc["root", "items"] == ["a", "b", "c"]
+
+
 class TestDocumentContains:
     def test_key_exists(self):
         doc = Document("name: foo")

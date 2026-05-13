@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from yamltrip import _core
 from yamltrip.errors import (
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 KeyPart = str | int
 
 
-def _normalize_keys(keys: Any) -> tuple[KeyPart, ...]:
+def _normalize_keys(keys: object) -> tuple[KeyPart, ...]:
     """Normalize __getitem__ input to a tuple of keys."""
     if isinstance(keys, (str, int)):
         return (keys,)
@@ -29,7 +29,7 @@ def _normalize_keys(keys: Any) -> tuple[KeyPart, ...]:
             if not isinstance(k, (str, int)):
                 msg = f"Key elements must be str or int, got {type(k).__name__}"
                 raise TypeError(msg)
-        return keys
+        return cast("tuple[KeyPart, ...]", tuple(keys))
     msg = f"Keys must be str, int, or tuple, got {type(keys).__name__}"
     raise TypeError(msg)
 
@@ -107,8 +107,11 @@ class Document:
         """Return a developer-friendly representation."""
         return f"Document(<{len(self._source)} bytes>)"
 
-    def __getitem__(self, keys: Any) -> Any:
-        """Retrieve the parsed value at the given path."""
+    def __getitem__(self, keys: object) -> Any:
+        """Retrieve the parsed value at the given path.
+
+        An empty tuple ``()`` retrieves the entire document as a Python object.
+        """
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)
         try:
@@ -116,8 +119,12 @@ class Document:
         except (ValueError, KeyError) as e:
             raise QueryError(str(e)) from None
 
-    def __contains__(self, keys: Any) -> bool:
-        """Check whether a path exists in the document."""
+    def __contains__(self, keys: object) -> bool:
+        """Check whether a path exists in the document.
+
+        An empty tuple ``()`` checks that the document root exists (always True
+        for a successfully parsed document).
+        """
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)
         return self._core_doc.query_exists(route)

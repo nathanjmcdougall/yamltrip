@@ -135,6 +135,7 @@ impl PyDocument {
     }
 
     /// Apply patches to this document and return a new document.
+    /// NOTE: Similar patch-application logic exists in ops::apply_patches (returns String).
     fn apply_patches(&self, patches: Vec<PyPatch>) -> PyResult<Self> {
         let yaml_patches: Vec<yamlpatch::Patch<'_>> = patches
             .iter()

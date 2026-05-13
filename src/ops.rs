@@ -140,6 +140,7 @@ impl PyPatch {
 }
 
 /// Apply a list of patches to a YAML source string.
+/// NOTE: Similar patch-application logic exists in PyDocument::apply_patches (returns Document).
 #[pyfunction]
 pub fn apply_patches(source: &str, patches: Vec<PyPatch>) -> PyResult<String> {
     let document = yamlpath::Document::new(source).map_err(|e| {

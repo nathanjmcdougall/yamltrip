@@ -1,21 +1,20 @@
 # yamltrip
 
-A round-tripping YAML library for Python. Edit YAML files while preserving
-comments, formatting, and key ordering.
+[![usethis](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/usethis-python/usethis-python/main/assets/badge/v1.json)](https://github.com/usethis-python/yamltrip) [![PyPI Version](https://img.shields.io/pypi/v/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip) [![PyPI License](https://img.shields.io/pypi/l/yamltrip.svg)](https://github.com/usethis-python/yamltrip?tab=MIT-1-ov-file) [![PyPI Supported Versions](https://img.shields.io/pypi/pyversions/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip)
 
-Built on [tree-sitter-yaml](https://github.com/tree-sitter-grammars/tree-sitter-yaml)
-via the [yamlpath](https://crates.io/crates/yamlpath) and
-[yamlpatch](https://crates.io/crates/yamlpatch) Rust crates, with Python
-bindings through [PyO3](https://pyo3.rs).
+Edit YAML files from Python, while respecting format and comments during the round-trip.
+
+Built on [tree-sitter-yaml](https://github.com/tree-sitter-grammars/tree-sitter-yaml) via the [yamlpath](https://crates.io/crates/yamlpath) and [yamlpatch](https://crates.io/crates/yamlpatch) Rust crates.
 
 ## Installation
 
-```
-pip install yamltrip
-```
+```console
+# With uv
+$ uv add yamltrip
 
-Requires Python 3.10+. Distributed as pre-built wheels (no Rust toolchain
-needed at install time).
+# With pip
+$ pip install yamltrip
+```
 
 ## Quick Start
 
@@ -27,7 +26,7 @@ doc = yamltrip.loads("name: Alice\nage: 30")
 print(doc["name"])       # "Alice"
 print("name" in doc)     # True
 
-# Immutable mutations — each returns a new Document
+# Immutable mutations: each call returns a new Document
 doc2 = doc.replace("age", value=31)
 doc3 = doc2.add(key="city", value="Portland")
 print(doc3.dumps())
@@ -41,17 +40,17 @@ with yamltrip.edit("config.yml") as editor:
 
 ## API Overview
 
-### Top-level functions
+### Top-level function
 
-| Function | Description |
-|---|---|
-| `yamltrip.loads(source)` | Parse a YAML string into a `Document` |
-| `yamltrip.load(path)` | Read a YAML file into a `Document` |
-| `yamltrip.edit(path)` | Open a YAML file for editing (context manager) |
+| Function                   | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| `yamltrip.loads(source)` | Parse a YAML string into a `Document`        |
+| `yamltrip.load(path)`    | Read a YAML file into a `Document`           |
+| `yamltrip.edit(path)`    | Open a YAML file for editing (context manager) |
 
 ### Document (immutable)
 
-Each mutation method returns a **new** `Document` — the original is never
+Every mutation method returns a **new** `Document`. The original is never
 modified.
 
 ```python
@@ -80,8 +79,8 @@ doc.dump("output.yml")        # write to file
 
 ### Editor (mutable context manager)
 
-Wraps `Document` with the same methods, but mutates in place and writes back
-to disk on successful context exit:
+Wraps `Document` with the same mutation methods, but applies changes in place
+and writes back to disk when the context exits cleanly:
 
 ```python
 with yamltrip.edit("config.yml") as ed:
@@ -96,53 +95,44 @@ with yamltrip.edit("config.yml") as ed:
 
 All yamltrip errors inherit from `YAMLTripError`:
 
-- **`ParseError`** — YAML input cannot be parsed
-- **`QueryError`** — path not found during lookup
-- **`PatchError`** — mutation operation failed
-  - **`KeyExistsError`** — `add()` target already exists
-  - **`KeyMissingError`** — `replace()` target doesn't exist
+- **`ParseError`**: YAML input cannot be parsed.
+- **`QueryError`**: path not found during lookup.
+- **`PatchError`**: mutation operation failed.
+  - **`KeyExistsError`**: `add()` target already exists.
+  - **`KeyMissingError`**: `replace()` target does not exist.
 
 ## Limitations
 
-- **Multi-document YAML streams** (`---` separated) are not supported —
-  behavior is undefined.
+- **Multi-document YAML streams** (`---` separated) are not supported.
 - **YAML tags** (`!!omap`, `!!set`, `!!merge`, custom tags) are not
   interpreted.
 - **Anchors and aliases** (`&anchor` / `*alias`) are detected
   (`doc.has_anchors()`) but not resolved during value extraction.
-- **No custom Python class serialization** — values are converted to/from
-  basic Python types (`str`, `int`, `float`, `bool`, `None`, `list`, `dict`).
-- **UTF-8 only** — files must be UTF-8 encoded. Other encodings raise
-  `ParseError`.
-- **Non-finite floats rejected** — `float("inf")`, `float("-inf")`, and
-  `float("nan")` cannot be serialized into YAML values.
-- **Integer keys cannot create structures** — `upsert()` with integer path
+- **Large integers may lose precision.** YAML integers outside the signed
+  64-bit range (i64) may become `float` during deserialization.
+- **Editor write-back is not atomic.** `Editor` detects external file changes
+  between enter and exit, but the check-then-write is racy. Do not use it
+  with concurrent writers.
+- **Line endings preserved as-is.** No CRLF/LF normalization. Mixed line
+  endings pass through unchanged.
+
+## Design Decisions
+
+- **No custom Python class serialization.** Values convert to/from
+  `str`, `int`, `float`, `bool`, `None`, `list`, and `dict` only.
+- **UTF-8 only.** Other encodings raise `ParseError`.
+- **Non-finite floats rejected.** `float("inf")`, `float("-inf")`, and
+  `float("nan")` cannot be serialized.
+- **Integer keys cannot create structures.** `upsert()` with integer path
   components can update existing sequence entries but cannot create new
-  intermediate structures. Only string keys can create new mappings.
-- **Large integers may lose precision** — YAML integers outside the signed
-  64-bit range (i64) may be silently converted to `float` during
-  deserialization.
-- **No negative sequence indices** — sequence indexing uses non-negative
-  integers only. Python-style negative indices are not supported.
-- **Editor write-back is best-effort** — `Editor` detects external file
-  modifications between enter and exit, but the check-then-write is not
-  atomic. It is not suitable for environments with concurrent writers.
-- **Line endings preserved as-is** — no CRLF/LF normalization is performed.
-  Mixed line endings in the input are passed through unchanged.
+  intermediate mappings. Only string keys create new mappings.
+- **No negative sequence indices.** Python-style negative indexing is not
+  supported.
 
-## Development
+## Acknowledgements
 
-```bash
-# Install dev dependencies
-uv sync
-
-# Build and test
-uv run pytest
-
-# Lint
-uv run ruff check
-uv run ruff format --check
-```
+yamltrip depends entirely on the [yamlpath](https://github.com/zizmorcore/zizmor/tree/main/crates/yamlpath) and [yamlpatch](https://github.com/zizmorcore/zizmor/tree/main/crates/yamlpatch) Rust crates for format-preserving YAML parsing and patching. These libraries use tree-sitter to query and modify YAML source text without discarding comments, whitespace, or key ordering. All of the core logic in yamltrip
+passes through them. Thanks to [William Woodruff](https://github.com/woodruffw) for creating and maintaining both crates as part of [zizmor](https://github.com/zizmorcore/zizmor).
 
 ## License
 

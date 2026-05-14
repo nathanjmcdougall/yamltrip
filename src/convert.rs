@@ -6,6 +6,13 @@ use serde_yaml::Value;
 ///
 /// Supported types: None, bool, int, float, str, list, dict.
 /// Raises TypeError for unsupported types.
+///
+/// # Recursion depth
+/// This function recurses into nested lists/dicts without a depth limit.
+/// In practice, Python's own recursion limit (~1000 by default) prevents
+/// callers from constructing structures deep enough to overflow the Rust
+/// stack. A dedicated depth guard is not warranted unless Python's limit
+/// is bypassed (e.g. via `sys.setrecursionlimit`).
 pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     if obj.is_instance_of::<PyNone>() {
         Ok(Value::Null)
@@ -52,6 +59,11 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
 }
 
 /// Convert a serde_yaml::Value to a Python object.
+///
+/// # Recursion depth
+/// This function recurses without a depth limit. The input comes from
+/// `serde_yaml::from_str`, which enforces its own recursion limit (128
+/// by default), so the nesting depth is bounded in practice.
 pub fn yaml_value_to_py(py: Python<'_>, value: &Value) -> PyResult<PyObject> {
     match value {
         Value::Null => Ok(py.None()),

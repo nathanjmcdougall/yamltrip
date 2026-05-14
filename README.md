@@ -112,6 +112,23 @@ All yamltrip errors inherit from `YAMLTripError`:
   (`doc.has_anchors()`) but not resolved during value extraction.
 - **No custom Python class serialization** — values are converted to/from
   basic Python types (`str`, `int`, `float`, `bool`, `None`, `list`, `dict`).
+- **UTF-8 only** — files must be UTF-8 encoded. Other encodings raise
+  `ParseError`.
+- **Non-finite floats rejected** — `float("inf")`, `float("-inf")`, and
+  `float("nan")` cannot be serialized into YAML values.
+- **Integer keys cannot create structures** — `upsert()` with integer path
+  components can update existing sequence entries but cannot create new
+  intermediate structures. Only string keys can create new mappings.
+- **Large integers may lose precision** — YAML integers outside the signed
+  64-bit range (i64) may be silently converted to `float` during
+  deserialization.
+- **No negative sequence indices** — sequence indexing uses non-negative
+  integers only. Python-style negative indices are not supported.
+- **Editor write-back is best-effort** — `Editor` detects external file
+  modifications between enter and exit, but the check-then-write is not
+  atomic. It is not suitable for environments with concurrent writers.
+- **Line endings preserved as-is** — no CRLF/LF normalization is performed.
+  Mixed line endings in the input are passed through unchanged.
 
 ## Development
 

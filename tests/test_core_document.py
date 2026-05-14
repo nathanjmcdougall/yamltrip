@@ -81,6 +81,28 @@ class TestExtractCrossDocumentUTF8:
             doc_b.extract(feature)
 
 
+class TestParseValueUTF8:
+    """parse_value must not panic on documents with multi-byte UTF-8 chars."""
+
+    def test_parse_value_multibyte_key(self):
+        doc = Document("🔑: hello")
+        assert doc.parse_value(Route(["🔑"])) == "hello"
+
+    def test_parse_value_multibyte_value(self):
+        doc = Document("key: 🎉")
+        assert doc.parse_value(Route(["key"])) == "🎉"
+
+    def test_parse_value_multibyte_nested(self):
+        doc = Document("日本:\n  名前: こんにちは")
+        assert doc.parse_value(Route(["日本", "名前"])) == "こんにちは"
+
+    def test_parse_value_multibyte_multiline_dedent(self):
+        """Exercises the dedenting path with multi-byte characters."""
+        doc = Document("parent:\n  子: |\n    日本語テキスト\n    二行目")
+        result = doc.parse_value(Route(["parent", "子"]))
+        assert "日本語テキスト" in result
+
+
 class TestDocumentFeatureKind:
     def test_scalar_kind(self):
         doc = Document("name: foo")

@@ -78,16 +78,24 @@ impl PyOp {
                 format!("Op.replace({})", yaml_value_repr(val))
             }
             yamlpatch::Op::Add { key, value } => {
-                format!("Op.add({}, {})", yaml_value_repr(&serde_yaml::Value::String(key.clone())), yaml_value_repr(value))
+                format!("Op.add({}, {})", yaml_str_repr(key), yaml_value_repr(value))
             }
             yamlpatch::Op::Remove => "Op.remove()".to_string(),
             yamlpatch::Op::Append { value } => {
                 format!("Op.append({})", yaml_value_repr(value))
             }
             yamlpatch::Op::MergeInto { key, .. } => {
-                format!("Op.merge_into({}, ...)", yaml_value_repr(&serde_yaml::Value::String(key.clone())))
+                format!("Op.merge_into({}, ...)", yaml_str_repr(key))
             }
-            _ => format!("Op({:?})", self.inner),
+            yamlpatch::Op::RewriteFragment { from, to } => {
+                format!("Op.rewrite_fragment({}, {})", yaml_str_repr(&format!("{from:?}")), yaml_str_repr(to))
+            }
+            yamlpatch::Op::ReplaceComment { new } => {
+                format!("Op.replace_comment({})", yaml_str_repr(new))
+            }
+            yamlpatch::Op::EmplaceComment { new } => {
+                format!("Op.emplace_comment({})", yaml_str_repr(new))
+            }
         }
     }
 
@@ -100,9 +108,17 @@ impl PyOp {
             yamlpatch::Op::Remove => "remove",
             yamlpatch::Op::Append { .. } => "append",
             yamlpatch::Op::MergeInto { .. } => "merge_into",
-            _ => "unknown",
+            yamlpatch::Op::RewriteFragment { .. } => "rewrite_fragment",
+            yamlpatch::Op::ReplaceComment { .. } => "replace_comment",
+            yamlpatch::Op::EmplaceComment { .. } => "emplace_comment",
         }
     }
+}
+
+/// Format a string as a Python-style repr.
+fn yaml_str_repr(s: &str) -> String {
+    let escaped = s.replace('\\', "\\\\").replace('\'', "\\'");
+    format!("'{escaped}'")
 }
 
 /// Format a serde_yaml::Value as a Python-style repr.
@@ -111,10 +127,7 @@ fn yaml_value_repr(val: &serde_yaml::Value) -> String {
         serde_yaml::Value::Null => "None".to_string(),
         serde_yaml::Value::Bool(b) => if *b { "True" } else { "False" }.to_string(),
         serde_yaml::Value::Number(n) => format!("{n}"),
-        serde_yaml::Value::String(s) => {
-            let escaped = s.replace('\\', "\\\\").replace('\'', "\\'");
-            format!("'{escaped}'")
-        },
+        serde_yaml::Value::String(s) => yaml_str_repr(s),
         serde_yaml::Value::Sequence(_) => "[...]".to_string(),
         serde_yaml::Value::Mapping(_) => "{...}".to_string(),
         serde_yaml::Value::Tagged(t) => yaml_value_repr(&t.value),

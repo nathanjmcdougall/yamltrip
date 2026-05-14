@@ -60,6 +60,27 @@ class TestDocumentQuery:
         assert doc.extract(feature) == "a"
 
 
+class TestExtractCrossDocumentUTF8:
+    """Using a Feature from one document on another can produce byte offsets
+    that land mid-UTF-8 codepoint.  This must raise ValueError, not crash."""
+
+    def test_extract_mid_utf8_raises_not_panics(self):
+        # "x: y" — scalar "y" is at byte offset 3..4
+        doc_a = Document("x: y")
+        feature = doc_a.query_exact(Route(["x"]))
+        assert feature is not None
+        assert feature.location.start == 3
+        assert feature.location.end == 4
+
+        # "🎉: z" — 🎉 is 4 UTF-8 bytes (F0 9F 8E 89), so byte 3 is a
+        # continuation byte, not a char boundary.
+        doc_b = Document("\U0001f389: z")
+
+        # Should raise a clean ValueError, not a Rust panic / PanicException.
+        with pytest.raises(ValueError, match="UTF-8"):
+            doc_b.extract(feature)
+
+
 class TestDocumentFeatureKind:
     def test_scalar_kind(self):
         doc = Document("name: foo")

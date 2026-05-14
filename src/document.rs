@@ -60,7 +60,13 @@ impl PyDocument {
                 "Feature location is out of bounds",
             ));
         }
-        Ok(source[start..end].to_string())
+        source.get(start..end)
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "Feature location is not aligned to UTF-8 character boundaries",
+                )
+            })
     }
 
     fn has_anchors(&self) -> bool {

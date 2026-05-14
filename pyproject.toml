@@ -1,22 +1,75 @@
+[build-system]
+build-backend = "maturin"
+requires = [ "maturin>=1.0,<2.0" ]
+
 [project]
 name = "yamltrip"
 version = "0.1.0"
 description = "A round-tripping YAML library for Python"
 readme = "README.md"
-authors = [
-    { name = "Nathan McDougall", email = "nathan.j.mcdougall@gmail.com" }
-]
+authors = [ { name = "Nathan McDougall", email = "nathan.j.mcdougall@gmail.com" } ]
 requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
 dependencies = []
+
+[dependency-groups]
+dev = [
+  "codespell>=2.4.2",
+  "deptry>=0.25.1",
+  "import-linter>=2.11",
+  "prek>=0.3.13",
+  "pyproject-fmt>=2.21.2",
+  "pytest>=9.0.3",
+  "ruff>=0.15.12",
+  "tomli>=2.4.1",
+  "ty>=0.0.35",
+]
+test = [
+  "coverage[toml]>=7.14.0",
+  "mypy>=1.16.0",
+]
 
 [tool.maturin]
 module-name = "yamltrip._core"
-python-packages = ["yamltrip"]
+python-packages = [ "yamltrip" ]
 python-source = "src"
 
 [tool.uv]
-cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.rs" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }]
+default-groups = [ "test", "dev" ]
+link-mode = "symlink"
+cache-keys = [ { file = "pyproject.toml" }, { file = "src/**/*.rs" }, { file = "Cargo.toml" }, { file = "Cargo.lock" } ]
 
-[build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
+[tool.codespell]
+ignore-regex = [ "[A-Za-z0-9+/]{100,}" ]
+ignore-words-list = [ "..." ]
+skip = [ "target" ]
+
+[tool.deptry]
+ignore_notebooks = false
+
+[tool.pyproject-fmt]
+keep_full_version = true
+
+[tool.ty]
+src.include = [ "src", "tests" ]
+
+[tool.coverage]
+run.relative_files = true
+run.source = [ "src" ]
+report.exclude_also = [
+  "@(abc\\.)?abstractmethod",
+  "assert_never(.*)",
+  "class .*\\bProtocol\\):",
+  "if TYPE_CHECKING:",
+  "msg = [\"']",
+  "raise AssertionError",
+  "raise NotImplementedError",
+]
+report.omit = [ "*/pytest-of-*/*" ]

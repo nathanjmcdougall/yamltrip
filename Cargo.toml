@@ -15,5 +15,7 @@ crate-type = ["cdylib", "lib"]
 pyo3 = { version = "0.27.1", features = ["extension-module", "abi3-py310"] }
 yamlpath = "1"
 yamlpatch = "1"
+# NOTE: serde_yaml 0.9 is archived/unmaintained (dtolnay). No drop-in
+# replacement exists yet. Monitor for a successor or security advisories.
 serde_yaml = "0.9"
 indexmap = "2"

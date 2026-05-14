@@ -15,9 +15,9 @@ impl PyLocation {
     #[new]
     fn new(start: usize, end: usize) -> PyResult<Self> {
         if start > end {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Location start ({start}) must not exceed end ({end})"),
-            ));
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Location start ({start}) must not exceed end ({end})"
+            )));
         }
         Ok(Self { start, end })
     }
@@ -37,7 +37,14 @@ impl From<yamlpath::Location> for PyLocation {
 }
 
 /// The kind of a YAML feature.
-#[pyclass(name = "FeatureKind", module = "yamltrip._core", frozen, eq, eq_int, hash)]
+#[pyclass(
+    name = "FeatureKind",
+    module = "yamltrip._core",
+    frozen,
+    eq,
+    eq_int,
+    hash
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PyFeatureKind {
     Scalar,
@@ -255,9 +262,7 @@ mod tests {
 
     #[test]
     fn test_empty_route_conversion() {
-        let route = PyRoute {
-            components: vec![],
-        };
+        let route = PyRoute { components: vec![] };
         let _yamlpath_route = route.to_yamlpath_route();
     }
 

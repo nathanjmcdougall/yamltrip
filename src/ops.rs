@@ -49,11 +49,11 @@ impl PyOp {
     /// Merge key-value pairs into an existing mapping.
     #[staticmethod]
     fn merge_into(key: &str, updates: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let dict = updates.downcast::<pyo3::types::PyDict>().map_err(|_| {
-            let type_name = updates.get_type().name().map_or_else(
-                |_| "<unknown>".to_string(),
-                |n| n.to_string(),
-            );
+        let dict = updates.cast::<pyo3::types::PyDict>().map_err(|_| {
+            let type_name = updates
+                .get_type()
+                .name()
+                .map_or_else(|_| "<unknown>".to_string(), |n| n.to_string());
             PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
                 "updates must be a dict, got {type_name}"
             ))
@@ -88,7 +88,11 @@ impl PyOp {
                 format!("Op.merge_into({}, ...)", yaml_str_repr(key))
             }
             yamlpatch::Op::RewriteFragment { from, to } => {
-                format!("Op.rewrite_fragment({}, {})", yaml_str_repr(&format!("{from:?}")), yaml_str_repr(to))
+                format!(
+                    "Op.rewrite_fragment({}, {})",
+                    yaml_str_repr(&format!("{from:?}")),
+                    yaml_str_repr(to)
+                )
             }
             yamlpatch::Op::ReplaceComment { new } => {
                 format!("Op.replace_comment({})", yaml_str_repr(new))

@@ -34,22 +34,23 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         if f.is_finite() {
             Ok(Value::Number(serde_yaml::Number::from(f)))
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Cannot convert float value {f} to YAML number"),
-            ))
+            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Cannot convert float value {f} to YAML number"
+            )))
         }
     } else if obj.is_instance_of::<PyString>() {
         Ok(Value::String(obj.extract::<String>()?))
     } else if obj.is_instance_of::<PyList>() {
-        let list = obj.downcast::<PyList>()?;
+        let list = obj.cast::<PyList>()?;
         let items: PyResult<Vec<Value>> = list.iter().map(|item| py_to_yaml_value(&item)).collect();
         Ok(Value::Sequence(items?))
     } else if obj.is_instance_of::<PyTuple>() {
-        let tuple = obj.downcast::<PyTuple>()?;
-        let items: PyResult<Vec<Value>> = tuple.iter().map(|item| py_to_yaml_value(&item)).collect();
+        let tuple = obj.cast::<PyTuple>()?;
+        let items: PyResult<Vec<Value>> =
+            tuple.iter().map(|item| py_to_yaml_value(&item)).collect();
         Ok(Value::Sequence(items?))
     } else if obj.is_instance_of::<PyDict>() {
-        let dict = obj.downcast::<PyDict>()?;
+        let dict = obj.cast::<PyDict>()?;
         let mut mapping = serde_yaml::Mapping::new();
         for (k, v) in dict.iter() {
             let key = py_to_yaml_value(&k)?;
@@ -71,7 +72,7 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
 /// This function recurses without a depth limit. The input comes from
 /// `serde_yaml::from_str`, which enforces its own recursion limit (128
 /// by default), so the nesting depth is bounded in practice.
-pub fn yaml_value_to_py(py: Python<'_>, value: &Value) -> PyResult<PyObject> {
+pub fn yaml_value_to_py(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
     match value {
         Value::Null => Ok(py.None()),
         Value::Bool(b) => Ok(b.into_pyobject(py)?.as_any().to_owned().unbind()),
@@ -152,7 +153,10 @@ mod tests {
             // i64::MAX + 1 is a valid u64 but overflows i64
             let large = (i64::MAX as u64 + 1).into_pyobject(py).unwrap().into_any();
             let val = py_to_yaml_value(&large).unwrap();
-            assert_eq!(val, Value::Number(serde_yaml::Number::from(i64::MAX as u64 + 1)));
+            assert_eq!(
+                val,
+                Value::Number(serde_yaml::Number::from(i64::MAX as u64 + 1))
+            );
         });
     }
 
@@ -192,10 +196,7 @@ mod tests {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let s = "hello".into_pyobject(py).unwrap().into_any();
-            assert_eq!(
-                py_to_yaml_value(&s).unwrap(),
-                Value::String("hello".into())
-            );
+            assert_eq!(py_to_yaml_value(&s).unwrap(), Value::String("hello".into()));
         });
     }
 

@@ -14,9 +14,7 @@ impl PyDocument {
     #[new]
     fn new(source: &str) -> PyResult<Self> {
         let doc = yamlpath::Document::new(source).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to parse YAML: {e}"
-            ))
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to parse YAML: {e}"))
         })?;
         Ok(Self { inner: doc })
     }
@@ -60,7 +58,8 @@ impl PyDocument {
                 "Feature location is out of bounds",
             ));
         }
-        source.get(start..end)
+        source
+            .get(start..end)
             .map(|s| s.to_string())
             .ok_or_else(|| {
                 PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -74,7 +73,7 @@ impl PyDocument {
     }
 
     /// Parse the YAML value at a route and return it as a Python object.
-    fn parse_value(&self, py: Python<'_>, route: &PyRoute) -> PyResult<PyObject> {
+    fn parse_value(&self, py: Python<'_>, route: &PyRoute) -> PyResult<Py<PyAny>> {
         let source = self.inner.source();
         let r = route.to_yamlpath_route();
 
@@ -99,10 +98,7 @@ impl PyDocument {
                     // Calculate the column offset (in bytes) of the value
                     // start relative to the beginning of its line, so we can
                     // dedent continuation lines.
-                    let line_start = source[..span.0]
-                        .rfind('\n')
-                        .map(|nl| nl + 1)
-                        .unwrap_or(0);
+                    let line_start = source[..span.0].rfind('\n').map(|nl| nl + 1).unwrap_or(0);
                     let col = span.0 - line_start;
                     if col == 0 {
                         raw.to_string()
@@ -128,7 +124,7 @@ impl PyDocument {
                 Err(e) => {
                     return Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
                         "Query error: {e}"
-                    )))
+                    )));
                 }
             }
         };
@@ -151,15 +147,13 @@ impl PyDocument {
             })
             .collect();
 
-        let result =
-            yamlpatch::apply_yaml_patches(&self.inner, &yaml_patches).map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
-            })?;
+        let result = yamlpatch::apply_yaml_patches(&self.inner, &yaml_patches).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
+        })?;
 
         Ok(Self { inner: result })
     }
 }
-
 
 fn convert_feature(feature: &yamlpath::Feature<'_>) -> PyFeature {
     PyFeature {

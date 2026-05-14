@@ -6,17 +6,30 @@ import sys
 import pytest
 
 
+def _stubtest_supports_ignore_disjoint_bases() -> bool:
+    """Check if the installed mypy stubtest supports --ignore-disjoint-bases."""
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy.stubtest", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    return "--ignore-disjoint-bases" in result.stdout
+
+
 def test_stubtest_core():
     """Run mypy stubtest against yamltrip._core to catch stub drift."""
+    cmd = [
+        sys.executable,
+        "-m",
+        "mypy.stubtest",
+        "yamltrip._core",
+    ]
+    if _stubtest_supports_ignore_disjoint_bases():
+        cmd.append("--ignore-disjoint-bases")
+
     try:
         result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mypy.stubtest",
-                "yamltrip._core",
-                "--ignore-disjoint-bases",
-            ],
+            cmd,
             capture_output=True,
             text=True,
         )

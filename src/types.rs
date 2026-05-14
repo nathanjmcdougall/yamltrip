@@ -106,6 +106,10 @@ impl PyRoute {
                 components.push(PyComponent::Key { name: s });
             } else if let Ok(i) = part.extract::<usize>() {
                 components.push(PyComponent::Index { index: i });
+            } else if part.extract::<i64>().is_ok() {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "Route indices must be non-negative integers",
+                ));
             } else {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
                     "Route components must be str or int, got {}",
@@ -255,5 +259,23 @@ mod tests {
             components: vec![],
         };
         let _yamlpath_route = route.to_yamlpath_route();
+    }
+
+    #[test]
+    fn test_route_negative_int_error_message() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let neg = (-1i64).into_pyobject(py).unwrap().into_any();
+            let parts = vec![neg];
+            let list = pyo3::types::PyList::new(py, &parts).unwrap();
+            let bound_list: Vec<Bound<'_, PyAny>> = list.iter().collect();
+            let result = PyRoute::new(bound_list);
+            let err = result.unwrap_err();
+            let msg = err.to_string();
+            assert!(
+                !msg.contains("must be str or int"),
+                "Error should not say 'must be str or int' for a negative int, got: {msg}"
+            );
+        });
     }
 }

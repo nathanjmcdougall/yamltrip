@@ -20,8 +20,15 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         // Must check bool before int, since bool is a subclass of int in Python
         Ok(Value::Bool(obj.extract::<bool>()?))
     } else if obj.is_instance_of::<PyInt>() {
-        let i: i64 = obj.extract()?;
-        Ok(Value::Number(i.into()))
+        if let Ok(i) = obj.extract::<i64>() {
+            Ok(Value::Number(i.into()))
+        } else if let Ok(u) = obj.extract::<u64>() {
+            Ok(Value::Number(u.into()))
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyOverflowError, _>(
+                "Integer too large for YAML number (must fit in i64 or u64)",
+            ))
+        }
     } else if obj.is_instance_of::<PyFloat>() {
         let f: f64 = obj.extract()?;
         if f.is_finite() {
@@ -135,6 +142,17 @@ mod tests {
             let i = 42i64.into_pyobject(py).unwrap().into_any();
             let val = py_to_yaml_value(&i).unwrap();
             assert_eq!(val, Value::Number(42.into()));
+        });
+    }
+
+    #[test]
+    fn test_py_to_yaml_large_unsigned_int() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // i64::MAX + 1 is a valid u64 but overflows i64
+            let large = (i64::MAX as u64 + 1).into_pyobject(py).unwrap().into_any();
+            let val = py_to_yaml_value(&large).unwrap();
+            assert_eq!(val, Value::Number(serde_yaml::Number::from(i64::MAX as u64 + 1)));
         });
     }
 

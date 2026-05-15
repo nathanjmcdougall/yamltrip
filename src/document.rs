@@ -146,6 +146,13 @@ impl PyDocument {
 }
 
 /// Shared patch-application logic used by both PyDocument::apply_patches and ops::apply_patches.
+///
+/// Patches are applied in order. Complex replaces (Mapping/Sequence values) are handled via
+/// direct string surgery; all other operations are batched and passed to yamlpatch.
+///
+/// Routes are symbolic paths (key names / sequence indices), not byte offsets, so they remain
+/// valid across complex replaces that restructure sibling values. This is the same sequential
+/// semantics yamlpatch uses internally when applying multiple patches.
 pub(crate) fn apply_patches_impl(
     doc: &yamlpath::Document,
     patches: &[PyPatch],
@@ -225,7 +232,9 @@ fn apply_complex_replace(
     let content_with_ws = doc.extract_with_leading_whitespace(&feature);
     let content = doc.extract(&feature);
 
-    // Calculate the start byte including leading whitespace
+    // Calculate the start byte including leading whitespace.
+    // Safety: ws_len <= byte_span.0 because extract_with_leading_whitespace only
+    // extends backward to the last newline (or start of document), never beyond byte_span.0.
     let ws_len = content_with_ws.len() - content.len();
     let start_byte = feature.location.byte_span.0 - ws_len;
     let end_byte = feature.location.byte_span.1;
@@ -305,6 +314,12 @@ fn apply_complex_replace(
     yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
 }
 
+/// Find the first structural colon (key-value separator) in a YAML fragment,
+/// skipping colons inside single- or double-quoted strings.
+///
+/// Precondition: `content` must be valid YAML text extracted from a yamlpath
+/// feature. Unterminated quotes cannot occur in practice because yamlpath
+/// only produces features from successfully parsed documents.
 fn find_key_colon(content: &str) -> Option<usize> {
     let bytes = content.as_bytes();
     let mut i = 0;
@@ -315,20 +330,24 @@ fn find_key_colon(content: &str) -> Option<usize> {
                 while i < bytes.len() && bytes[i] != b'\'' {
                     i += 1;
                 }
-                i += 1;
+                if i < bytes.len() {
+                    i += 1;
+                }
             }
             b'"' => {
                 i += 1;
                 while i < bytes.len() {
                     if bytes[i] == b'\\' {
-                        i += 2;
+                        i = (i + 2).min(bytes.len());
                     } else if bytes[i] == b'"' {
                         break;
                     } else {
                         i += 1;
                     }
                 }
-                i += 1;
+                if i < bytes.len() {
+                    i += 1;
+                }
             }
             b':' => {
                 let next = bytes.get(i + 1);

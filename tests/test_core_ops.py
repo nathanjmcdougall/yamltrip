@@ -64,6 +64,18 @@ class TestApplyPatches:
         result = apply_patches(source, patches)
         assert "repo: local" in result
 
+    def test_batch_scalar_then_complex_then_scalar(self):
+        source = "name: foo\nconfig: old\nversion: 1\n"
+        patches = [
+            Patch(route=Route(["name"]), operation=Op.replace("bar")),
+            Patch(route=Route(["config"]), operation=Op.replace({"a": 1})),
+            Patch(route=Route(["version"]), operation=Op.replace(2)),
+        ]
+        result = apply_patches(source, patches)
+        assert "name: bar" in result
+        assert "a: 1" in result
+        assert "version: 2" in result
+
     def test_preserves_comments(self):
         source = "# top comment\nname: foo  # inline"
         patches = [Patch(route=Route(["name"]), operation=Op.replace("bar"))]

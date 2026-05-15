@@ -269,6 +269,41 @@ class TestDocumentReplaceComplex:
         assert doc2["outer", "config"] == {"a": 1}
         assert "    a: 1" in doc2.source
 
+    def test_replace_with_empty_dict(self):
+        doc = Document("config:\n  key: value\n")
+        doc2 = doc.replace("config", value={})
+        assert doc2["config"] == {}
+
+    def test_replace_with_empty_list(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.replace("items", value=[])
+        assert doc2["items"] == []
+
+    def test_replace_block_scalar_with_dict(self):
+        doc = Document("description: |\n  This is a\n  multi-line string\n")
+        doc2 = doc.replace("description", value={"summary": "short"})
+        assert doc2["description"] == {"summary": "short"}
+
+    def test_replace_folded_scalar_with_list(self):
+        doc = Document("notes: >\n  folded\n  text\n")
+        doc2 = doc.replace("notes", value=["a", "b"])
+        assert doc2["notes"] == ["a", "b"]
+
+    def test_replace_flow_mapping_with_dict(self):
+        doc = Document("config: {a: 1, b: 2}\n")
+        doc2 = doc.replace("config", value={"x": 10})
+        assert doc2["config"] == {"x": 10}
+
+    def test_replace_quoted_key_with_colon(self):
+        doc = Document('"host:port": old\n')
+        doc2 = doc.replace("host:port", value={"h": "localhost", "p": 8080})
+        assert doc2["host:port"] == {"h": "localhost", "p": 8080}
+
+    def test_replace_key_with_hash_in_value(self):
+        doc = Document("color: '#ff0000'\n")
+        doc2 = doc.replace("color", value={"r": 255, "g": 0, "b": 0})
+        assert doc2["color"] == {"r": 255, "g": 0, "b": 0}
+
 
 class TestDocumentAdd:
     def test_add_key(self):

@@ -31,13 +31,7 @@ pub fn py_to_yaml_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         }
     } else if obj.is_instance_of::<PyFloat>() {
         let f: f64 = obj.extract()?;
-        if f.is_finite() {
-            Ok(Value::Number(serde_yaml::Number::from(f)))
-        } else {
-            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Cannot convert float value {f} to YAML number"
-            )))
-        }
+        Ok(Value::Number(serde_yaml::Number::from(f)))
     } else if obj.is_instance_of::<PyString>() {
         Ok(Value::String(obj.extract::<String>()?))
     } else if obj.is_instance_of::<PyList>() {
@@ -174,20 +168,44 @@ mod tests {
     }
 
     #[test]
-    fn test_py_to_yaml_float_nan_rejected() {
+    fn test_py_to_yaml_float_nan() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let nan = f64::NAN.into_pyobject(py).unwrap().into_any();
-            assert!(py_to_yaml_value(&nan).is_err());
+            let val = py_to_yaml_value(&nan).unwrap();
+            match val {
+                Value::Number(n) => assert!(n.is_nan()),
+                _ => panic!("expected Number"),
+            }
         });
     }
 
     #[test]
-    fn test_py_to_yaml_float_inf_rejected() {
+    fn test_py_to_yaml_float_inf() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let inf = f64::INFINITY.into_pyobject(py).unwrap().into_any();
-            assert!(py_to_yaml_value(&inf).is_err());
+            let val = py_to_yaml_value(&inf).unwrap();
+            match val {
+                Value::Number(n) => assert!(n.is_infinite()),
+                _ => panic!("expected Number"),
+            }
+        });
+    }
+
+    #[test]
+    fn test_py_to_yaml_float_neg_inf() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let neg_inf = f64::NEG_INFINITY.into_pyobject(py).unwrap().into_any();
+            let val = py_to_yaml_value(&neg_inf).unwrap();
+            match val {
+                Value::Number(n) => {
+                    assert!(n.is_infinite());
+                    assert_eq!(n.as_f64().unwrap(), f64::NEG_INFINITY);
+                }
+                _ => panic!("expected Number"),
+            }
         });
     }
 

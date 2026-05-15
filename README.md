@@ -119,8 +119,8 @@ All yamltrip errors inherit from `YAMLTripError`:
 - **No custom Python class serialization.** Values convert to/from
   `str`, `int`, `float`, `bool`, `None`, `list`, and `dict` only.
 - **UTF-8 only.** Other encodings raise `ParseError`.
-- **Non-finite floats rejected.** `float("inf")`, `float("-inf")`, and
-  `float("nan")` cannot be serialized.
+- **Non-finite floats round-trip.** `float("inf")`, `float("-inf")`, and
+  `float("nan")` map to YAML's `.inf`, `-.inf`, and `.nan`.
 - **Integer keys cannot create structures.** `upsert()` with integer path
   components can update existing sequence entries but cannot create new
   intermediate mappings. Only string keys create new mappings.

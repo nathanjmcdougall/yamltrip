@@ -113,8 +113,6 @@ All yamltrip errors inherit from `YAMLTripError`:
 - **Editor write-back is not atomic.** `Editor` detects external file changes
   between enter and exit, but the check-then-write is racy. Do not use it
   with concurrent writers.
-- **Line endings preserved as-is.** No CRLF/LF normalization. Mixed line
-  endings pass through unchanged.
 
 ## Design Decisions
 
@@ -128,6 +126,8 @@ All yamltrip errors inherit from `YAMLTripError`:
   intermediate mappings. Only string keys create new mappings.
 - **No negative sequence indices.** Python-style negative indexing is not
   supported.
+- **Line endings preserved as-is.** No CRLF/LF normalization. Mixed line
+  endings pass through unchanged.
 
 ## Acknowledgements
 

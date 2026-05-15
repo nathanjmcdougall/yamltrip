@@ -139,20 +139,257 @@ impl PyDocument {
     /// Apply patches to this document and return a new document.
     /// NOTE: Similar patch-application logic exists in ops::apply_patches (returns String).
     fn apply_patches(&self, patches: Vec<PyPatch>) -> PyResult<Self> {
-        let yaml_patches: Vec<yamlpatch::Patch<'_>> = patches
-            .iter()
-            .map(|p| yamlpatch::Patch {
-                route: p.route.to_yamlpath_route(),
-                operation: p.operation.inner.clone(),
-            })
-            .collect();
+        let mut current_doc = self.inner.clone();
+        let mut batch: Vec<usize> = Vec::new();
 
-        let result = yamlpatch::apply_yaml_patches(&self.inner, &yaml_patches).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
-        })?;
+        for (idx, patch) in patches.iter().enumerate() {
+            let is_complex_replace = matches!(
+                &patch.operation.inner,
+                yamlpatch::Op::Replace(v) if matches!(v, serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_))
+            );
 
-        Ok(Self { inner: result })
+            if is_complex_replace {
+                // Flush any pending yamlpatch batch first
+                if !batch.is_empty() {
+                    let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
+                        .iter()
+                        .map(|&i| yamlpatch::Patch {
+                            route: patches[i].route.to_yamlpath_route(),
+                            operation: patches[i].operation.inner.clone(),
+                        })
+                        .collect();
+                    current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
+                        .map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                                "Patch failed: {e}"
+                            ))
+                        })?;
+                    batch.clear();
+                }
+
+                // Apply the complex replace directly
+                let route = patch.route.to_yamlpath_route();
+                let value = match &patch.operation.inner {
+                    yamlpatch::Op::Replace(v) => v,
+                    _ => unreachable!(),
+                };
+                current_doc =
+                    apply_complex_replace(&current_doc, &route, value).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                            "Patch failed: {e}"
+                        ))
+                    })?;
+            } else {
+                batch.push(idx);
+            }
+        }
+
+        // Flush remaining batch
+        if !batch.is_empty() {
+            let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
+                .iter()
+                .map(|&i| yamlpatch::Patch {
+                    route: patches[i].route.to_yamlpath_route(),
+                    operation: patches[i].operation.inner.clone(),
+                })
+                .collect();
+            current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches).map_err(
+                |e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                        "Patch failed: {e}"
+                    ))
+                },
+            )?;
+        }
+
+        Ok(Self { inner: current_doc })
     }
+}
+
+fn apply_complex_replace(
+    doc: &yamlpath::Document,
+    route: &yamlpath::Route<'_>,
+    value: &serde_yaml::Value,
+) -> Result<yamlpath::Document, String> {
+    let source = doc.source();
+
+    // Root-level replace: just serialize the entire value
+    if route.is_empty() {
+        let serialized =
+            serde_yaml::to_string(value).map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+        return yamlpath::Document::new(serialized)
+            .map_err(|e| format!("Failed to re-parse YAML: {e}"));
+    }
+
+    // Locate the feature (with key context)
+    let feature = doc
+        .query_pretty(route)
+        .map_err(|e| format!("Query failed: {e}"))?;
+
+    let content_with_ws = doc.extract_with_leading_whitespace(&feature);
+    let content = doc.extract(&feature);
+
+    // Calculate the start byte including leading whitespace
+    let ws_len = content_with_ws.len() - content.len();
+    let start_byte = feature.location.byte_span.0 - ws_len;
+    let end_byte = feature.location.byte_span.1;
+
+    // Find the colon separating key from value
+    let colon_pos = find_key_colon(content_with_ws);
+
+    let (key_part, value_first_line) = match colon_pos {
+        Some(pos) => {
+            let key = &content_with_ws[..pos + 1]; // through the colon
+            let rest = &content_with_ws[pos + 1..];
+            (key.to_string(), rest.to_string())
+        }
+        None => {
+            // No colon found — bare value (e.g. sequence item)
+            let serialized = serde_yaml::to_string(value)
+                .map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+            let trimmed = serialized.trim_end_matches('\n');
+
+            let line_start = source[..feature.location.byte_span.0]
+                .rfind('\n')
+                .map(|nl| nl + 1)
+                .unwrap_or(0);
+            let base_indent = feature.location.byte_span.0 - line_start;
+            let indent_str = " ".repeat(base_indent);
+
+            let indented = indent_block(trimmed, &indent_str);
+
+            let mut result = source.to_string();
+            result.replace_range(
+                feature.location.byte_span.0..feature.location.byte_span.1,
+                &indented,
+            );
+            if !result.ends_with('\n') {
+                result.push('\n');
+            }
+            return yamlpath::Document::new(result)
+                .map_err(|e| format!("Failed to re-parse YAML: {e}"));
+        }
+    };
+
+    // Detect inline comment on the first line of the value part
+    let first_line = value_first_line.lines().next().unwrap_or("");
+    let comment = extract_inline_comment(first_line);
+
+    // Compute base indentation from the feature's actual position
+    let feat_start = feature.location.byte_span.0;
+    let line_start = source[..feat_start]
+        .rfind('\n')
+        .map(|nl| nl + 1)
+        .unwrap_or(0);
+    let base_indent = feat_start - line_start;
+    let value_indent = " ".repeat(base_indent + 2);
+
+    // Serialize the new value in block style
+    let serialized =
+        serde_yaml::to_string(value).map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+    let trimmed = serialized.trim_end_matches('\n');
+
+    // Re-indent each line of the serialized value
+    let indented_value = indent_block(trimmed, &value_indent);
+
+    // Assemble: key: [# comment]\n  indented_value
+    let replacement = match comment {
+        Some(c) => format!("{} {}\n{}", key_part, c, indented_value),
+        None => format!("{}\n{}", key_part, indented_value),
+    };
+
+    // Replace in source
+    let mut result = source.to_string();
+    result.replace_range(start_byte..end_byte, &replacement);
+
+    if !result.ends_with('\n') {
+        result.push('\n');
+    }
+
+    yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
+}
+
+fn find_key_colon(content: &str) -> Option<usize> {
+    let bytes = content.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\'' => {
+                i += 1;
+                while i < bytes.len() && bytes[i] != b'\'' {
+                    i += 1;
+                }
+                i += 1;
+            }
+            b'"' => {
+                i += 1;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                    } else if bytes[i] == b'"' {
+                        break;
+                    } else {
+                        i += 1;
+                    }
+                }
+                i += 1;
+            }
+            b':' => {
+                let next = bytes.get(i + 1);
+                if matches!(next, Some(b' ') | Some(b'\n') | Some(b'\r') | None) {
+                    return Some(i);
+                }
+                i += 1;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+    None
+}
+
+fn extract_inline_comment(line: &str) -> Option<&str> {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\'' if !in_double_quote => {
+                in_single_quote = !in_single_quote;
+            }
+            b'"' if !in_single_quote => {
+                in_double_quote = !in_double_quote;
+            }
+            b'\\' if in_double_quote => {
+                i += 1;
+            }
+            b'#' if !in_single_quote && !in_double_quote => {
+                if i > 0 && (bytes[i - 1] == b' ' || bytes[i - 1] == b'\t') {
+                    return Some(&line[i..]);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn indent_block(content: &str, indent: &str) -> String {
+    let mut result = String::new();
+    for (i, line) in content.lines().enumerate() {
+        if i > 0 {
+            result.push('\n');
+        }
+        if !line.trim().is_empty() {
+            result.push_str(indent);
+            result.push_str(line);
+        }
+    }
+    result
 }
 
 fn convert_feature(feature: &yamlpath::Feature<'_>) -> PyFeature {

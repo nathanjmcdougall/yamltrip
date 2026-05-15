@@ -93,6 +93,11 @@ class Document:
         """The current YAML source text."""
         return self._source
 
+    @property
+    def root(self) -> Any:
+        """The entire document parsed as a Python object."""
+        return self[()]
+
     def __eq__(self, other: object) -> bool:
         """Compare documents by their source text."""
         if not isinstance(other, Document):

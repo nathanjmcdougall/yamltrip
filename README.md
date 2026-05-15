@@ -56,6 +56,7 @@ modified.
 ```python
 doc = yamltrip.loads("items:\n  - a\n  - b")
 
+doc.root                      # {"items": ["a", "b"]}
 doc["items"]                  # ["a", "b"]
 doc["items", 0]               # "a"
 ("items", 0) in doc           # True

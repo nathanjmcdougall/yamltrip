@@ -110,9 +110,10 @@ All yamltrip errors inherit from `YAMLTripError`:
   (`doc.has_anchors()`) but not resolved during value extraction.
 - **Large integers may lose precision.** YAML integers outside the signed
   64-bit range (i64) may become `float` during deserialization.
-- **Editor write-back is not atomic.** `Editor` detects external file changes
-  between enter and exit, but the check-then-write is racy. Do not use it
-  with concurrent writers.
+- **Editor write-back is best-effort atomic.** `Editor` writes to a
+  temporary file then does an `os.replace`, so the target file is never
+  left half-written. External modifications between enter and exit are
+  detected, but the check is not locked against concurrent writers.
 
 ## Design Decisions
 

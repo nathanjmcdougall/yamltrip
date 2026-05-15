@@ -1,5 +1,7 @@
 """Round-trip preservation tests."""
 
+import math
+
 from yamltrip import Document
 
 
@@ -112,3 +114,26 @@ class TestComplexDocument:
         assert doc["server", "host"] == "localhost"
         assert doc["server", "port"] == 9090
         assert doc["database", "pool"] == 10
+
+
+class TestNonFiniteFloatRoundTrip:
+    def test_nan_replace_roundtrip(self):
+        source = "val: .nan\n"
+        doc = Document(source)
+        assert math.isnan(doc[("val",)])
+        doc2 = doc.replace("val", value=float("nan"))
+        assert math.isnan(doc2[("val",)])
+
+    def test_inf_replace_roundtrip(self):
+        source = "val: .inf\n"
+        doc = Document(source)
+        assert doc[("val",)] == float("inf")
+        doc2 = doc.replace("val", value=float("inf"))
+        assert doc2[("val",)] == float("inf")
+
+    def test_neg_inf_replace_roundtrip(self):
+        source = "val: -.inf\n"
+        doc = Document(source)
+        assert doc[("val",)] == float("-inf")
+        doc2 = doc.replace("val", value=float("-inf"))
+        assert doc2[("val",)] == float("-inf")

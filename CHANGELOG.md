@@ -8,7 +8,7 @@
 
 ### Packaging
 
-- Added `License :: OSI Approved :: MIT` License trove classifier to pyproject.toml.
+- Added `License :: OSI Approved :: MIT License` trove classifier to pyproject.toml.
 
 ### Documentation
 

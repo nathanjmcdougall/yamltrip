@@ -60,9 +60,17 @@ class TestDocumentQuery:
         assert doc.extract(feature) == "a"
 
 
-class TestExtractCrossDocumentUTF8:
-    """Using a Feature from one document on another can produce byte offsets
-    that land mid-UTF-8 codepoint.  This must raise ValueError, not crash."""
+class TestExtractCrossDocument:
+    """Using a Feature from one document on another must raise ValueError."""
+
+    def test_extract_cross_document_rejected(self):
+        doc_a = Document("x: y")
+        feature = doc_a.query_exact(Route(["x"]))
+        assert feature is not None
+
+        doc_b = Document("a: b")
+        with pytest.raises(ValueError, match="does not belong"):
+            doc_b.extract(feature)
 
     def test_extract_mid_utf8_raises_not_panics(self):
         # "x: y" — scalar "y" is at byte offset 3..4
@@ -76,8 +84,8 @@ class TestExtractCrossDocumentUTF8:
         # continuation byte, not a char boundary.
         doc_b = Document("\U0001f389: z")
 
-        # Should raise a clean ValueError, not a Rust panic / PanicException.
-        with pytest.raises(ValueError, match="UTF-8"):
+        # Should raise ValueError — now caught by source_hash check first.
+        with pytest.raises(ValueError, match="does not belong"):
             doc_b.extract(feature)
 
 

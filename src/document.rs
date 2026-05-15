@@ -7,6 +7,14 @@ use crate::types::{PyFeature, PyFeatureKind, PyLocation, PyRoute};
 #[pyclass(name = "Document", module = "yamltrip._core")]
 pub struct PyDocument {
     inner: yamlpath::Document,
+    source_hash: u64,
+}
+
+fn hash_source(source: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    source.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[pymethods]
@@ -16,7 +24,10 @@ impl PyDocument {
         let doc = yamlpath::Document::new(source).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to parse YAML: {e}"))
         })?;
-        Ok(Self { inner: doc })
+        Ok(Self {
+            source_hash: hash_source(doc.source()),
+            inner: doc,
+        })
     }
 
     fn source(&self) -> &str {
@@ -31,7 +42,7 @@ impl PyDocument {
     fn query_exact(&self, route: &PyRoute) -> PyResult<Option<PyFeature>> {
         let r = route.to_yamlpath_route();
         match self.inner.query_exact(&r) {
-            Ok(Some(feature)) => Ok(Some(convert_feature(&feature))),
+            Ok(Some(feature)) => Ok(Some(convert_feature(&feature, self.source_hash))),
             Ok(None) => Ok(None),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
                 "Query failed: {e}"
@@ -42,7 +53,7 @@ impl PyDocument {
     fn query_pretty(&self, route: &PyRoute) -> PyResult<PyFeature> {
         let r = route.to_yamlpath_route();
         match self.inner.query_pretty(&r) {
-            Ok(feature) => Ok(convert_feature(&feature)),
+            Ok(feature) => Ok(convert_feature(&feature, self.source_hash)),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
                 "Query failed: {e}"
             ))),
@@ -50,6 +61,11 @@ impl PyDocument {
     }
 
     fn extract(&self, feature: &PyFeature) -> PyResult<String> {
+        if feature.source_hash != self.source_hash {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Feature does not belong to this document",
+            ));
+        }
         let source = self.inner.source();
         let start = feature.location.start;
         let end = feature.location.end;
@@ -151,11 +167,14 @@ impl PyDocument {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
         })?;
 
-        Ok(Self { inner: result })
+        Ok(Self {
+            source_hash: hash_source(result.source()),
+            inner: result,
+        })
     }
 }
 
-fn convert_feature(feature: &yamlpath::Feature<'_>) -> PyFeature {
+fn convert_feature(feature: &yamlpath::Feature<'_>, source_hash: u64) -> PyFeature {
     PyFeature {
         location: PyLocation {
             start: feature.location.byte_span.0,
@@ -167,5 +186,6 @@ fn convert_feature(feature: &yamlpath::Feature<'_>) -> PyFeature {
         }),
         kind: PyFeatureKind::from(feature.kind()),
         is_multiline: feature.is_multiline(),
+        source_hash,
     }
 }

@@ -164,6 +164,7 @@ pub struct PyFeature {
     pub kind: PyFeatureKind,
     #[pyo3(get)]
     pub is_multiline: bool,
+    pub source_hash: u64,
 }
 
 #[pymethods]

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -62,7 +65,19 @@ class Editor:
             if current_source != self._original_source:
                 msg = f"File was modified externally: {self._path}"
                 raise RuntimeError(msg)
-            self._path.write_text(self._document.dumps(), encoding="utf-8")
+            content = self._document.dumps()
+            fd, tmp = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")
+            try:
+                os.write(fd, content.encode("utf-8"))
+                os.close(fd)
+                fd = -1
+                os.replace(tmp, self._path)
+            except BaseException:
+                if fd >= 0:
+                    os.close(fd)
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp)
+                raise
         self._original = None
         self._document = None
         self._original_source = None

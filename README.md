@@ -1,6 +1,6 @@
 # yamltrip
 
-[![usethis](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/usethis-python/usethis-python/main/assets/badge/v1.json)](https://github.com/usethis-python/yamltrip) [![PyPI Version](https://img.shields.io/pypi/v/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip) [![PyPI License](https://img.shields.io/pypi/l/yamltrip.svg)](https://github.com/usethis-python/yamltrip?tab=MIT-1-ov-file) [![PyPI Supported Versions](https://img.shields.io/pypi/pyversions/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip)
+[![usethis](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/usethis-python/usethis-python/main/assets/badge/v1.json)](https://github.com/usethis-python/usethis-python) [![PyPI Version](https://img.shields.io/pypi/v/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip) [![PyPI License](https://img.shields.io/pypi/l/yamltrip.svg)](https://github.com/usethis-python/yamltrip?tab=MIT-1-ov-file) [![PyPI Supported Versions](https://img.shields.io/pypi/pyversions/yamltrip.svg)](https://pypi.python.org/pypi/yamltrip)
 
 Edit YAML files from Python, while respecting format and comments during the round-trip.
 

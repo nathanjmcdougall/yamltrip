@@ -8,11 +8,11 @@
 
 ### Packaging
 
-- Added License :: OSI Approved :: MIT License trove classifier to pyproject.toml.
+- Added `License :: OSI Approved :: MIT` License trove classifier to pyproject.toml.
 
 ### Documentation
 
-Line-ending normalization (LF on output regardless of input) moved from "Limitations" to "Design Decisions" in the README.
+- Line-ending normalization (LF on output regardless of input) moved from "Limitations" to "Design Decisions" in the README.
 
 ### Internal
 

@@ -83,6 +83,11 @@ class Editor:
             raise RuntimeError(msg)
         return self._document
 
+    @property
+    def root(self) -> Any:
+        """The entire document parsed as a Python object."""
+        return self.document.root
+
     def __getitem__(self, keys: object) -> Any:
         """Retrieve the parsed value at the given path."""
         return self.document[keys]

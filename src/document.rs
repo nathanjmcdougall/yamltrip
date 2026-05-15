@@ -137,73 +137,69 @@ impl PyDocument {
     }
 
     /// Apply patches to this document and return a new document.
-    /// NOTE: Similar patch-application logic exists in ops::apply_patches (returns String).
     fn apply_patches(&self, patches: Vec<PyPatch>) -> PyResult<Self> {
-        let mut current_doc = self.inner.clone();
-        let mut batch: Vec<usize> = Vec::new();
-
-        for (idx, patch) in patches.iter().enumerate() {
-            let is_complex_replace = matches!(
-                &patch.operation.inner,
-                yamlpatch::Op::Replace(v) if matches!(v, serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_))
-            );
-
-            if is_complex_replace {
-                // Flush any pending yamlpatch batch first
-                if !batch.is_empty() {
-                    let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
-                        .iter()
-                        .map(|&i| yamlpatch::Patch {
-                            route: patches[i].route.to_yamlpath_route(),
-                            operation: patches[i].operation.inner.clone(),
-                        })
-                        .collect();
-                    current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
-                        .map_err(|e| {
-                            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                                "Patch failed: {e}"
-                            ))
-                        })?;
-                    batch.clear();
-                }
-
-                // Apply the complex replace directly
-                let route = patch.route.to_yamlpath_route();
-                let value = match &patch.operation.inner {
-                    yamlpatch::Op::Replace(v) => v,
-                    _ => unreachable!(),
-                };
-                current_doc =
-                    apply_complex_replace(&current_doc, &route, value).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                            "Patch failed: {e}"
-                        ))
-                    })?;
-            } else {
-                batch.push(idx);
-            }
-        }
-
-        // Flush remaining batch
-        if !batch.is_empty() {
-            let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
-                .iter()
-                .map(|&i| yamlpatch::Patch {
-                    route: patches[i].route.to_yamlpath_route(),
-                    operation: patches[i].operation.inner.clone(),
-                })
-                .collect();
-            current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches).map_err(
-                |e| {
-                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                        "Patch failed: {e}"
-                    ))
-                },
-            )?;
-        }
-
-        Ok(Self { inner: current_doc })
+        let doc = apply_patches_impl(&self.inner, &patches).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Patch failed: {e}"))
+        })?;
+        Ok(Self { inner: doc })
     }
+}
+
+/// Shared patch-application logic used by both PyDocument::apply_patches and ops::apply_patches.
+pub(crate) fn apply_patches_impl(
+    doc: &yamlpath::Document,
+    patches: &[PyPatch],
+) -> Result<yamlpath::Document, String> {
+    let mut current_doc = doc.clone();
+    let mut batch: Vec<usize> = Vec::new();
+
+    for (idx, patch) in patches.iter().enumerate() {
+        let is_complex_replace = matches!(
+            &patch.operation.inner,
+            yamlpatch::Op::Replace(v) if matches!(v, serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_))
+        );
+
+        if is_complex_replace {
+            // Flush any pending yamlpatch batch first
+            if !batch.is_empty() {
+                let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
+                    .iter()
+                    .map(|&i| yamlpatch::Patch {
+                        route: patches[i].route.to_yamlpath_route(),
+                        operation: patches[i].operation.inner.clone(),
+                    })
+                    .collect();
+                current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
+                    .map_err(|e| e.to_string())?;
+                batch.clear();
+            }
+
+            // Apply the complex replace directly
+            let route = patch.route.to_yamlpath_route();
+            let value = match &patch.operation.inner {
+                yamlpatch::Op::Replace(v) => v,
+                _ => unreachable!(),
+            };
+            current_doc = apply_complex_replace(&current_doc, &route, value)?;
+        } else {
+            batch.push(idx);
+        }
+    }
+
+    // Flush remaining batch
+    if !batch.is_empty() {
+        let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
+            .iter()
+            .map(|&i| yamlpatch::Patch {
+                route: patches[i].route.to_yamlpath_route(),
+                operation: patches[i].operation.inner.clone(),
+            })
+            .collect();
+        current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(current_doc)
 }
 
 fn apply_complex_replace(

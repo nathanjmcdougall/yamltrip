@@ -248,6 +248,27 @@ class TestDocumentReplaceComplex:
         result = doc2["repos"]
         assert result == [{"repo": "local"}]
 
+    def test_replace_root_level_with_dict(self):
+        doc = Document("key: value\n")
+        doc2 = doc.replace(value={"new_key": "new_val", "another": 42})
+        assert doc2["new_key"] == "new_val"
+        assert doc2["another"] == 42
+
+    def test_replace_top_level_key_with_dict(self):
+        """Indentation depth 0: top-level key gets value indented at 2 spaces."""
+        doc = Document("config: old\n")
+        doc2 = doc.replace("config", value={"a": 1})
+        assert doc2["config"] == {"a": 1}
+        # Value should be indented at 2 spaces (base_indent=0 + 2)
+        assert "  a: 1" in doc2.source
+
+    def test_replace_depth2_key_with_dict(self):
+        """Indentation depth 2: nested key gets value indented at 4 spaces."""
+        doc = Document("outer:\n  config: old\n")
+        doc2 = doc.replace("outer", "config", value={"a": 1})
+        assert doc2["outer", "config"] == {"a": 1}
+        assert "    a: 1" in doc2.source
+
 
 class TestDocumentAdd:
     def test_add_key(self):

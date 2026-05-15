@@ -110,17 +110,18 @@ All yamltrip errors inherit from `YAMLTripError`:
   (`doc.has_anchors()`) but not resolved during value extraction.
 - **Large integers may lose precision.** YAML integers outside the signed
   64-bit range (i64) may become `float` during deserialization.
-- **Editor write-back is not atomic.** `Editor` detects external file changes
-  between enter and exit, but the check-then-write is racy. Do not use it
-  with concurrent writers.
+- **Editor write-back is best-effort atomic.** `Editor` writes to a
+  temporary file then does an `os.replace`, so the target file is never
+  left half-written. External modifications between enter and exit are
+  detected, but the check is not locked against concurrent writers.
 
 ## Design Decisions
 
 - **No custom Python class serialization.** Values convert to/from
   `str`, `int`, `float`, `bool`, `None`, `list`, and `dict` only.
 - **UTF-8 only.** Other encodings raise `ParseError`.
-- **Non-finite floats rejected.** `float("inf")`, `float("-inf")`, and
-  `float("nan")` cannot be serialized.
+- **Non-finite floats round-trip.** `float("inf")`, `float("-inf")`, and
+  `float("nan")` map to YAML's `.inf`, `-.inf`, and `.nan`.
 - **Integer keys cannot create structures.** `upsert()` with integer path
   components can update existing sequence entries but cannot create new
   intermediate mappings. Only string keys create new mappings.

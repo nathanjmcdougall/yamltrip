@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0
+
+### Features
+
+- `replace` and `upsert` now accept dicts and lists as values, not just scalars. Complex values are serialized to block-style YAML and spliced in via string surgery, bypassing yamlpatch's scalar-only limitation.
+- Added `root` property to `Document` and `Editor` as a convenience for `doc[()]`.
+
+### Internal
+
+- Added cargo-fmt and clippy pre-commit hooks, aligned with CI.
+- Simplified complex-replace internals to match yamlpatch behavior (removed quote-aware colon finding and inline comment preservation).
+
+### Documentation
+
+- Fixed usethis badge path in README.
+
 ## 0.2.0
 
 ### Features

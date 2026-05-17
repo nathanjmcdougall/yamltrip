@@ -381,10 +381,12 @@ fn extract_inline_comment(line: &str) -> Option<&str> {
             b'\\' if in_double_quote => {
                 i += 1;
             }
-            b'#' if !in_single_quote && !in_double_quote => {
-                if i > 0 && (bytes[i - 1] == b' ' || bytes[i - 1] == b'\t') {
-                    return Some(&line[i..]);
-                }
+            b'#' if !in_single_quote
+                && !in_double_quote
+                && i > 0
+                && (bytes[i - 1] == b' ' || bytes[i - 1] == b'\t') =>
+            {
+                return Some(&line[i..]);
             }
             _ => {}
         }

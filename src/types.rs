@@ -268,8 +268,8 @@ mod tests {
 
     #[test]
     fn test_route_negative_int_error_message() {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        pyo3::Python::initialize();
+        Python::attach(|py| {
             let neg = (-1i64).into_pyobject(py).unwrap().into_any();
             let parts = vec![neg];
             let list = pyo3::types::PyList::new(py, &parts).unwrap();

@@ -181,7 +181,12 @@ pub(crate) fn apply_patches_impl(
                 batch.clear();
             }
 
-            // Apply the complex replace directly
+            // Apply the complex replace directly.
+            // NOTE: This re-parses the document for each complex replace (O(N) parses).
+            // This is consistent with yamlpatch::apply_yaml_patches, which also
+            // re-parses per patch via apply_single_patch. A bottom-up single-pass
+            // approach could avoid this, but isn't warranted until profiling shows
+            // it matters.
             let route = patch.route.to_yamlpath_route();
             let value = match &patch.operation.inner {
                 yamlpatch::Op::Replace(v) => v,

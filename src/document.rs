@@ -289,7 +289,6 @@ fn apply_complex_replace(
     let base_indent = feat_start - line_start;
     // NOTE: The +2 assumes 2-space indentation. This is consistent with yamlpatch,
     // which also hardcodes 2-space indent in Add, Append, MergeInto, and Replace ops.
-    // Fixing this for non-2-space documents should be done upstream in yamlpatch.
     let value_indent = " ".repeat(base_indent + 2);
 
     // Serialize the new value in block style
@@ -404,6 +403,9 @@ fn indent_block(content: &str, indent: &str) -> String {
         if i > 0 {
             result.push('\n');
         }
+        // Blank lines are preserved (the \n above) but not indented,
+        // avoiding trailing whitespace. In practice serde_yaml::to_string()
+        // never emits blank lines for Mapping/Sequence values.
         if !line.trim().is_empty() {
             result.push_str(indent);
             result.push_str(line);

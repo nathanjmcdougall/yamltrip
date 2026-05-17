@@ -247,11 +247,10 @@ fn apply_complex_replace(
     // Find the colon separating key from value
     let colon_pos = find_key_colon(content_with_ws);
 
-    let (key_part, value_first_line) = match colon_pos {
+    let key_part = match colon_pos {
         Some(pos) => {
             let key = &content_with_ws[..pos + 1]; // through the colon
-            let rest = &content_with_ws[pos + 1..];
-            (key.to_string(), rest.to_string())
+            key.to_string()
         }
         None => {
             // No colon found — bare value (e.g. sequence item)
@@ -281,10 +280,6 @@ fn apply_complex_replace(
         }
     };
 
-    // Detect inline comment on the first line of the value part
-    let first_line = value_first_line.lines().next().unwrap_or("");
-    let comment = extract_inline_comment(first_line);
-
     // Compute base indentation from the feature's actual position
     let feat_start = feature.location.byte_span.0;
     let line_start = source[..feat_start]
@@ -304,11 +299,10 @@ fn apply_complex_replace(
     // Re-indent each line of the serialized value
     let indented_value = indent_block(trimmed, &value_indent);
 
-    // Assemble: key: [# comment]\n  indented_value
-    let replacement = match comment {
-        Some(c) => format!("{} {}\n{}", key_part, c, indented_value),
-        None => format!("{}\n{}", key_part, indented_value),
-    };
+    // Assemble: key:\n  indented_value
+    // NOTE: Inline comments on the value line are not preserved, consistent
+    // with yamlpatch's own Replace behavior for scalar values.
+    let replacement = format!("{}\n{}", key_part, indented_value);
 
     // Replace in source
     let mut result = source.to_string();
@@ -321,91 +315,14 @@ fn apply_complex_replace(
     yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
 }
 
-/// Find the first structural colon (key-value separator) in a YAML fragment,
-/// skipping colons inside single- or double-quoted strings.
+/// Find the first colon (key-value separator) in a YAML fragment.
 ///
-/// Precondition: `content` must be valid YAML text extracted from a yamlpath
-/// feature. Unterminated quotes cannot occur in practice because yamlpath
-/// only produces features from successfully parsed documents.
+/// Uses a naive `find(':')`, consistent with yamlpatch's own Replace
+/// implementation. This means colons inside quoted keys will be
+/// misidentified — a known yamlpatch limitation that will be fixed
+/// uniformly when yamlpatch addresses it.
 fn find_key_colon(content: &str) -> Option<usize> {
-    let bytes = content.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'\'' => {
-                // YAML '' escape (literal single quote) is handled correctly here:
-                // the first ' closes, the second immediately reopens, producing
-                // the same result as explicit escape handling since '' is the
-                // only escape sequence in single-quoted YAML strings.
-                i += 1;
-                while i < bytes.len() && bytes[i] != b'\'' {
-                    i += 1;
-                }
-                if i < bytes.len() {
-                    i += 1;
-                }
-            }
-            b'"' => {
-                i += 1;
-                while i < bytes.len() {
-                    if bytes[i] == b'\\' {
-                        i = (i + 2).min(bytes.len());
-                    } else if bytes[i] == b'"' {
-                        break;
-                    } else {
-                        i += 1;
-                    }
-                }
-                if i < bytes.len() {
-                    i += 1;
-                }
-            }
-            b':' => {
-                let next = bytes.get(i + 1);
-                if matches!(next, Some(b' ') | Some(b'\n') | Some(b'\r') | None) {
-                    return Some(i);
-                }
-                i += 1;
-            }
-            _ => {
-                i += 1;
-            }
-        }
-    }
-    None
-}
-
-fn extract_inline_comment(line: &str) -> Option<&str> {
-    let bytes = line.as_bytes();
-    let mut i = 0;
-    let mut in_single_quote = false;
-    let mut in_double_quote = false;
-
-    while i < bytes.len() {
-        match bytes[i] {
-            b'\'' if !in_double_quote => {
-                // YAML '' escape: two toggles (true→false→true) is a no-op,
-                // which is correct since '' is the only escape in single-quoted strings.
-                in_single_quote = !in_single_quote;
-            }
-            b'"' if !in_single_quote => {
-                in_double_quote = !in_double_quote;
-            }
-            b'\\' if in_double_quote => {
-                i += 1;
-            }
-            b'#' if !in_single_quote
-                && !in_double_quote
-                && i > 0
-                && (bytes[i - 1] == b' ' || bytes[i - 1] == b'\t') =>
-            {
-                return Some(&line[i..]);
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    None
+    content.find(':')
 }
 
 fn indent_block(content: &str, indent: &str) -> String {

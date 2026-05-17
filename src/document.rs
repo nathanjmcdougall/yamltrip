@@ -328,6 +328,10 @@ fn find_key_colon(content: &str) -> Option<usize> {
     while i < bytes.len() {
         match bytes[i] {
             b'\'' => {
+                // YAML '' escape (literal single quote) is handled correctly here:
+                // the first ' closes, the second immediately reopens, producing
+                // the same result as explicit escape handling since '' is the
+                // only escape sequence in single-quoted YAML strings.
                 i += 1;
                 while i < bytes.len() && bytes[i] != b'\'' {
                     i += 1;
@@ -375,6 +379,8 @@ fn extract_inline_comment(line: &str) -> Option<&str> {
     while i < bytes.len() {
         match bytes[i] {
             b'\'' if !in_double_quote => {
+                // YAML '' escape: two toggles (true→false→true) is a no-op,
+                // which is correct since '' is the only escape in single-quoted strings.
                 in_single_quote = !in_single_quote;
             }
             b'"' if !in_single_quote => {

@@ -188,6 +188,118 @@ class TestDocumentReplace:
             doc.replace("missing", value="bar")
 
 
+class TestDocumentReplaceComplex:
+    def test_replace_with_dict(self):
+        doc = Document("config:\n  key: value\n")
+        doc2 = doc.replace("config", value={"key": "new", "extra": "field"})
+        assert doc2["config"] == {"key": "new", "extra": "field"}
+
+    def test_replace_with_list(self):
+        doc = Document("repos: []\n")
+        doc2 = doc.replace(
+            "repos", value=[{"repo": "local", "hooks": [{"id": "my-hook"}]}]
+        )
+        result = doc2["repos"]
+        assert len(result) == 1
+        assert result[0]["repo"] == "local"
+        assert result[0]["hooks"] == [{"id": "my-hook"}]
+
+    def test_replace_with_nested_dict_in_list(self):
+        doc = Document("data:\n  - old\n")
+        doc2 = doc.replace("data", value=[{"a": {"b": [1, 2, 3]}}])
+        assert doc2["data"] == [{"a": {"b": [1, 2, 3]}}]
+
+    def test_replace_complex_preserves_other_keys(self):
+        doc = Document("name: foo\nconfig:\n  key: value\nversion: 1\n")
+        doc2 = doc.replace("config", value={"new_key": "new_val"})
+        assert doc2["name"] == "foo"
+        assert doc2["version"] == 1
+        assert doc2["config"] == {"new_key": "new_val"}
+
+    def test_replace_complex_preserves_comments_on_other_keys(self):
+        doc = Document("name: foo  # keep this\nconfig: old\n")
+        doc2 = doc.replace("config", value={"a": 1})
+        assert "# keep this" in doc2.source
+
+    def test_replace_nested_key_with_dict(self):
+        doc = Document("outer:\n  inner: old\n")
+        doc2 = doc.replace("outer", "inner", value={"a": 1, "b": 2})
+        assert doc2["outer", "inner"] == {"a": 1, "b": 2}
+
+    def test_replace_complex_with_complex(self):
+        doc = Document("config:\n  a: 1\n  b: 2\n")
+        doc2 = doc.replace("config", value={"x": 10, "y": 20})
+        assert doc2["config"] == {"x": 10, "y": 20}
+
+    def test_replace_scalar_with_list(self):
+        doc = Document("items: none\n")
+        doc2 = doc.replace("items", value=["a", "b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_replace_deeply_nested_with_dict(self):
+        doc = Document("a:\n  b:\n    c: old\n")
+        doc2 = doc.replace("a", "b", "c", value={"deep": "value"})
+        assert doc2["a", "b", "c"] == {"deep": "value"}
+
+    def test_replace_comment_relocation(self):
+        doc = Document("repos: []  # managed by tool\n")
+        doc2 = doc.replace("repos", value=[{"repo": "local"}])
+        assert "# managed by tool" in doc2.source
+        result = doc2["repos"]
+        assert result == [{"repo": "local"}]
+
+    def test_replace_root_level_with_dict(self):
+        doc = Document("key: value\n")
+        doc2 = doc.replace(value={"new_key": "new_val", "another": 42})
+        assert doc2["new_key"] == "new_val"
+        assert doc2["another"] == 42
+
+    def test_replace_top_level_key_with_dict(self):
+        """Indentation depth 0: top-level key gets value indented at 2 spaces."""
+        doc = Document("config: old\n")
+        doc2 = doc.replace("config", value={"a": 1})
+        assert doc2["config"] == {"a": 1}
+        # Value should be indented at 2 spaces (base_indent=0 + 2)
+        assert "  a: 1" in doc2.source
+
+    def test_replace_depth2_key_with_dict(self):
+        """Indentation depth 2: nested key gets value indented at 4 spaces."""
+        doc = Document("outer:\n  config: old\n")
+        doc2 = doc.replace("outer", "config", value={"a": 1})
+        assert doc2["outer", "config"] == {"a": 1}
+        assert "    a: 1" in doc2.source
+
+    def test_replace_with_empty_dict(self):
+        doc = Document("config:\n  key: value\n")
+        doc2 = doc.replace("config", value={})
+        assert doc2["config"] == {}
+
+    def test_replace_with_empty_list(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.replace("items", value=[])
+        assert doc2["items"] == []
+
+    def test_replace_block_scalar_with_dict(self):
+        doc = Document("description: |\n  This is a\n  multi-line string\n")
+        doc2 = doc.replace("description", value={"summary": "short"})
+        assert doc2["description"] == {"summary": "short"}
+
+    def test_replace_folded_scalar_with_list(self):
+        doc = Document("notes: >\n  folded\n  text\n")
+        doc2 = doc.replace("notes", value=["a", "b"])
+        assert doc2["notes"] == ["a", "b"]
+
+    def test_replace_flow_mapping_with_dict(self):
+        doc = Document("config: {a: 1, b: 2}\n")
+        doc2 = doc.replace("config", value={"x": 10})
+        assert doc2["config"] == {"x": 10}
+
+    def test_replace_key_with_hash_in_value(self):
+        doc = Document("color: '#ff0000'\n")
+        doc2 = doc.replace("color", value={"r": 255, "g": 0, "b": 0})
+        assert doc2["color"] == {"r": 255, "g": 0, "b": 0}
+
+
 class TestDocumentAdd:
     def test_add_key(self):
         doc = Document("name: foo")
@@ -216,6 +328,31 @@ class TestDocumentUpsert:
         doc = Document("name: foo")
         doc2 = doc.upsert("age", value=30)
         assert doc2["age"] == 30
+
+
+class TestDocumentUpsertComplex:
+    def test_upsert_existing_with_dict(self):
+        doc = Document("config:\n  key: value\n")
+        doc2 = doc.upsert("config", value={"key": "new", "extra": "field"})
+        assert doc2["config"] == {"key": "new", "extra": "field"}
+
+    def test_upsert_existing_with_list(self):
+        doc = Document("repos: []\n")
+        doc2 = doc.upsert("repos", value=[{"repo": "local"}])
+        assert doc2["repos"] == [{"repo": "local"}]
+
+    def test_upsert_missing_with_dict(self):
+        """This already works via Op.add — verify it stays working."""
+        doc = Document("name: foo\n")
+        doc2 = doc.upsert("config", value={"a": 1})
+        assert doc2["config"] == {"a": 1}
+        assert doc2["name"] == "foo"
+
+    def test_upsert_missing_with_list(self):
+        """This already works via Op.add — verify it stays working."""
+        doc = Document("name: foo\n")
+        doc2 = doc.upsert("items", value=["a", "b"])
+        assert doc2["items"] == ["a", "b"]
 
 
 class TestDocumentRemove:

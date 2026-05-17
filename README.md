@@ -31,6 +31,10 @@ doc2 = doc.replace("age", value=31)
 doc3 = doc2.add(key="city", value="Portland")
 print(doc3.dumps())
 
+# Complex values (dicts/lists) work too
+doc4 = doc3.replace("age", value={"years": 31, "months": 4})
+doc5 = doc4.upsert("hobbies", value=["reading", "hiking"])
+
 # File-based editing with a context manager
 with yamltrip.edit("config.yml") as editor:
     editor.replace("version", value="2.0")
@@ -62,8 +66,10 @@ doc["items", 0]               # "a"
 ("items", 0) in doc           # True
 
 doc.replace("items", 0, value="x")
+doc.replace("items", value=["x", "y"])  # dicts and lists accepted
 doc.add("items", key="c", value=3)
 doc.upsert("new", "nested", value=True)
+doc.upsert("config", value={"debug": True})  # dicts and lists accepted
 doc.remove("items", 0)
 doc.prune_remove("a", "b", "c")  # remove + prune empty parents
 doc.append("items", value="c")

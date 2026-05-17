@@ -25,21 +25,17 @@ Input: a `yamlpath::Document`, a `yamlpath::Route`, and a `serde_yaml::Value` (M
 
 1. **Locate the feature** — `document.query_pretty(&route)` to get the byte span with surrounding key context.
 
-2. **Extract content** — `extract_with_leading_whitespace(feature)` to get the full `key: value` text. Split at the first `: ` (colon-space) or `:\n` (colon-newline) into `key_part` (through the colon) and `value_part` (after the colon).
+2. **Extract content** — `extract_with_leading_whitespace(feature)` to get the full `key: value` text. Split at the first `:` (naive `find(':')`, consistent with yamlpatch's own Replace implementation) into `key_part` (through the colon) and the rest.
 
-3. **Detect inline comment** — Scan the first line of `value_part` for a trailing `# comment`. Heuristic: after the value content on the first line, find `\s+#`. Save the comment text if found.
+3. **Compute indentation** — Derive base indent from the number of leading spaces on the feature's line. Value content indentation = base indent + 2 spaces.
 
-4. **Compute indentation** — Derive base indent from the number of leading spaces on the feature's line. Value content indentation = base indent + 2 spaces.
+4. **Serialize the new value** — `serde_yaml::to_string(&value)`, strip trailing newline, re-indent each line to the computed value indentation.
 
-5. **Serialize the new value** — `serde_yaml::to_string(&value)`, strip trailing newline, re-indent each line to the computed value indentation.
+5. **Assemble replacement text** — `key:\n  indented_value`. Inline comments on the value line are not preserved, consistent with yamlpatch's own Replace behavior for scalar values.
 
-6. **Assemble replacement text**:
-   - With comment: `key: # comment\n  indented_value`
-   - Without comment: `key:\n  indented_value`
+6. **String surgery** — Replace the byte range from the feature's span (adjusted for leading whitespace) in the document source.
 
-7. **String surgery** — Replace the byte range from the feature's span (adjusted for leading whitespace) in the document source.
-
-8. **Re-parse** — `yamlpath::Document::new(patched_source)` to validate.
+7. **Re-parse** — `yamlpath::Document::new(patched_source)` to validate.
 
 ### Root-level replace
 
@@ -64,17 +60,6 @@ Patches are applied sequentially. If a complex replace is encountered mid-batch,
 
 `Document.upsert()` delegates to `replace()` when the path exists, and to `_create_at()` (which uses `Op.add`/`Op.merge_into`) when it doesn't. Since `Op.add` and `Op.merge_into` already handle complex values, the only broken path is the `replace` delegation — fixed by this change. No changes to `document.py`.
 
-## Comment Relocation
-
-When replacing a scalar that has an inline comment (e.g. `repos: [] # managed by tool`) with a multi-line block value:
-
-- The comment is preserved on the key line: `repos: # managed by tool`
-- The block value starts on the next line, indented
-
-Detection heuristic: after stripping the YAML value from the first line of `value_part`, look for `\s+#` at the end.
-
-**Limitation:** Comments inside quoted strings that happen to contain `#` could be misdetected. This is unlikely for the scalar values being replaced and is documented as a known limitation.
-
 ## Serialization Style
 
 No changes to `Op.add` behavior. Complex values in `Replace` use `serde_yaml::to_string()` which produces block style by default (block mappings, block sequences). This matches the pre-commit config use case where block style is expected.
@@ -88,16 +73,19 @@ New tests in `tests/test_document.py`:
 - `replace()` with nested dict-in-list-in-dict
 - `upsert()` with a dict value (path exists → goes through replace)
 - `upsert()` with a dict value (path doesn't exist → goes through add, already works)
-- Comment preservation when replacing scalar with complex value
 - Replacing a complex value with another complex value
 - Root-level replace with complex value
 - Indentation correctness at various nesting depths (0, 2, 4 spaces)
+
+## Known Limitations
+
+- **Quoted keys with colons** — `find_key_colon` uses a naive `str::find(':')`, which will misparse keys like `"host:port": value`. This is consistent with yamlpatch's own Replace implementation. When yamlpatch fixes this upstream, yamltrip should inherit the fix.
+- **Inline comments** — Not preserved during complex replace, consistent with yamlpatch's scalar Replace behavior.
 
 ## Scope Boundaries
 
 **In scope:**
 - `Replace` with Mapping/Sequence values
-- Inline comment relocation
 - Indentation handling
 
 **Out of scope:**

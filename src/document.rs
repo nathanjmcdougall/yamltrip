@@ -287,6 +287,9 @@ fn apply_complex_replace(
         .map(|nl| nl + 1)
         .unwrap_or(0);
     let base_indent = feat_start - line_start;
+    // NOTE: The +2 assumes 2-space indentation. This is consistent with yamlpatch,
+    // which also hardcodes 2-space indent in Add, Append, MergeInto, and Replace ops.
+    // Fixing this for non-2-space documents should be done upstream in yamlpatch.
     let value_indent = " ".repeat(base_indent + 2);
 
     // Serialize the new value in block style

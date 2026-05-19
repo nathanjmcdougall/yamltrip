@@ -111,3 +111,66 @@ class TestSyncPreservesComments:
         doc2 = doc.sync("items", value=["a", "x", "c"])
         assert "# first" in doc2.source
         assert "# third" in doc2.source
+
+
+class TestSyncPathNotExists:
+    def test_creates_path_via_upsert(self):
+        doc = Document("a: 1\n")
+        doc2 = doc.sync("b", value=2)
+        assert doc2["b"] == 2
+        assert doc2["a"] == 1
+
+    def test_creates_nested_path(self):
+        doc = Document("a: 1\n")
+        doc2 = doc.sync("b", "c", value=3)
+        assert doc2["b", "c"] == 3
+
+
+class TestSyncTypeMismatch:
+    def test_mapping_to_scalar(self):
+        doc = Document("a:\n  x: 1\n  y: 2\n")
+        doc2 = doc.sync("a", value="hello")
+        assert doc2["a"] == "hello"
+
+    def test_scalar_to_mapping(self):
+        doc = Document("a: hello\n")
+        doc2 = doc.sync("a", value={"x": 1})
+        assert doc2["a"] == {"x": 1}
+
+    def test_list_to_scalar(self):
+        doc = Document("a:\n  - 1\n  - 2\n")
+        doc2 = doc.sync("a", value="flat")
+        assert doc2["a"] == "flat"
+
+
+class TestSyncRootLevel:
+    def test_sync_entire_root(self):
+        doc = Document("a: 1\nb: 2\n")
+        doc2 = doc.sync(value={"a": 1, "b": 2, "c": 3})
+        assert doc2["c"] == 3
+
+    def test_sync_root_remove_key(self):
+        doc = Document("a: 1\nb: 2\n")
+        doc2 = doc.sync(value={"a": 1})
+        assert ("b",) not in doc2
+
+
+class TestSyncEmptyValues:
+    def test_sync_empty_dict_removes_all_keys(self):
+        doc = Document("a: 1\nb: 2\n")
+        doc2 = doc.sync(value={})
+        # After removing all keys, neither key should exist
+        assert ("a",) not in doc2
+        assert ("b",) not in doc2
+
+    def test_sync_empty_list_removes_all_items(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.sync("items", value=[])
+        assert doc2["items"] == []
+
+
+class TestSyncNullValue:
+    def test_sync_to_none(self):
+        doc = Document("a: 1\n")
+        doc2 = doc.sync("a", value=None)
+        assert doc2["a"] is None

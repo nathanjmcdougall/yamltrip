@@ -75,6 +75,12 @@ def _diff_lists(
     if not old and not new:
         return []
 
+    # Replacing with empty list: use a single replace instead of removing items
+    if not new:
+        route = _core.Route(list(path))
+        op = _core.Op.replace([])
+        return [_core.Patch(route=route, operation=op)]
+
     # Map items to integers for SequenceMatcher (handles unhashable items)
     int_old, int_new = _shared_int_sequences(old, new)
 
@@ -106,7 +112,7 @@ def _diff_lists(
                 route = _core.Route([*path, idx])
                 remove_op = _core.Op.remove()
                 patches.append(_core.Patch(route=route, operation=remove_op))
-                offset -= 1
+            offset -= i2 - i1
 
     return patches
 

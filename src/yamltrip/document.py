@@ -17,7 +17,7 @@ from yamltrip.errors import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-KeyPart = str | int
+    from yamltrip._types import KeyPart
 
 
 def _normalize_keys(keys: object) -> tuple[KeyPart, ...]:
@@ -324,4 +324,32 @@ class Document:
             )
             for idx in indices_to_remove
         ]
+        return self._apply_patches(patches)
+
+    def sync(self, *keys: KeyPart, value: Any) -> Document:
+        """Sync the value at path to match the desired value.
+
+        Diffs the current value against the desired value and applies
+        the minimal set of patches. Returns self if no changes needed.
+        """
+        from yamltrip.sync import _compute_patches  # noqa: PLC0415
+
+        normalized = _normalize_keys(keys) if keys else ()
+
+        # If path doesn't exist, delegate to upsert.
+        # Root (empty keys) always exists, so skip the check.
+        if normalized:
+            route = _make_route(normalized)
+            if not self._core_doc.query_exists(route):
+                return self.upsert(*normalized, value=value)
+
+        # Get current value and diff
+        try:
+            old_value = self._core_doc.parse_value(_make_route(normalized))
+        except (ValueError, KeyError):
+            return self.upsert(*normalized, value=value)
+
+        patches = _compute_patches(old_value, value, normalized)
+        if not patches:
+            return self
         return self._apply_patches(patches)

@@ -8,11 +8,14 @@ type = layers
 layers =
     editor
     document
+    sync
     errors
 containers =
     yamltrip
 exhaustive = True
 exhaustive_ignores =
     _core
+    _types
 ignore_imports =
     yamltrip.document -> yamltrip
+    yamltrip.sync -> yamltrip

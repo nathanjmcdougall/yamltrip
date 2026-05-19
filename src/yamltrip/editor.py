@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from yamltrip._core import Feature
-    from yamltrip.document import KeyPart
+    from yamltrip._types import KeyPart
 
 
 class Editor:
@@ -140,6 +140,10 @@ class Editor:
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> None:
         """Remove all occurrences of given values from the sequence at path."""
         self._document = self.document.remove_from_list(*keys, values=values)
+
+    def sync(self, *keys: KeyPart, value: Any) -> None:
+        """Sync the value at path to match the desired value."""
+        self._document = self.document.sync(*keys, value=value)
 
     def query(self, *keys: KeyPart) -> Feature:
         """Return the Feature at the given path."""

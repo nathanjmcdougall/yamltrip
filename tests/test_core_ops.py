@@ -90,3 +90,109 @@ class TestApplyPatches:
         result = apply_patches(source, patches)
         assert "    b: 99" in result
         assert "    c: 2" in result
+
+
+class TestOpInsertAt:
+    def test_constructor(self):
+        op = Op.insert_at(index=1, value="item")
+        assert op is not None
+        assert op.kind == "insert_at"
+
+    def test_repr(self):
+        op = Op.insert_at(index=2, value="hello")
+        assert "insert_at" in repr(op)
+        assert "2" in repr(op)
+
+    def test_negative_index(self):
+        op = Op.insert_at(index=-1, value="item")
+        assert op.kind == "insert_at"
+
+
+class TestApplyPatchesInsertAt:
+    def test_insert_at_middle(self):
+        source = "items:\n  - a\n  - b\n  - c\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=1, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        assert "- a" in result
+        assert "- x" in result
+        assert "- b" in result
+        assert "- c" in result
+
+    def test_insert_at_beginning(self):
+        source = "items:\n  - a\n  - b\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=0, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        assert "- x" in result
+        assert "- a" in result
+
+    def test_insert_at_end_acts_as_append(self):
+        source = "items:\n  - a\n  - b\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=2, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        assert "- x" in result
+        assert "- b" in result
+
+    def test_insert_at_negative_index(self):
+        source = "items:\n  - a\n  - b\n  - c\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=-1, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        # -1 means before the last item (c), so order should be a, b, x, c
+        lines = result.strip().split("\n")
+        item_lines = [line.strip() for line in lines if line.strip().startswith("- ")]
+        assert item_lines == ["- a", "- b", "- x", "- c"]
+
+    def test_insert_at_clamps_large_positive(self):
+        source = "items:\n  - a\n  - b\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=100, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        # Should append at end
+        lines = result.strip().split("\n")
+        item_lines = [line.strip() for line in lines if line.strip().startswith("- ")]
+        assert item_lines[-1] == "- x"
+
+    def test_insert_at_clamps_large_negative(self):
+        source = "items:\n  - a\n  - b\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=-100, value="x"))
+        ]
+        result = apply_patches(source, patches)
+        # Should prepend
+        lines = result.strip().split("\n")
+        item_lines = [line.strip() for line in lines if line.strip().startswith("- ")]
+        assert item_lines[0] == "- x"
+
+    def test_insert_at_complex_value(self):
+        source = "repos:\n  - repo: a\n  - repo: c\n"
+        patches = [
+            Patch(
+                route=Route(["repos"]),
+                operation=Op.insert_at(
+                    index=1, value={"repo": "b", "hooks": [{"id": "check"}]}
+                ),
+            )
+        ]
+        result = apply_patches(source, patches)
+        assert "repo: a" in result
+        assert "repo: b" in result
+        assert "repo: c" in result
+        assert "id: check" in result
+
+    def test_insert_at_preserves_comments(self):
+        source = "items:\n  # first item\n  - a\n  # third item\n  - c\n"
+        patches = [
+            Patch(route=Route(["items"]), operation=Op.insert_at(index=1, value="b"))
+        ]
+        result = apply_patches(source, patches)
+        assert "# first item" in result
+        assert "# third item" in result
+        assert "- b" in result

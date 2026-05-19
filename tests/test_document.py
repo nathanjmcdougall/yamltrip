@@ -5,6 +5,7 @@ from yamltrip.document import Document
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    PatchError,
     QueryError,
 )
 
@@ -396,3 +397,76 @@ class TestDocumentAppend:
         assert "b" not in result
         assert "a" in result
         assert "c" in result
+
+
+class TestDocumentInsert:
+    def test_insert_middle(self):
+        doc = Document("items:\n  - a\n  - b\n  - c\n")
+        doc2 = doc.insert("items", index=1, value="x")
+        assert doc2["items"] == ["a", "x", "b", "c"]
+
+    def test_insert_beginning(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.insert("items", index=0, value="x")
+        assert doc2["items"] == ["x", "a", "b"]
+
+    def test_insert_end(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.insert("items", index=2, value="x")
+        assert doc2["items"] == ["a", "b", "x"]
+
+    def test_insert_negative_index(self):
+        doc = Document("items:\n  - a\n  - b\n  - c\n")
+        doc2 = doc.insert("items", index=-1, value="x")
+        assert doc2["items"] == ["a", "b", "x", "c"]
+
+    def test_insert_clamps_large_positive(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.insert("items", index=100, value="x")
+        assert doc2["items"] == ["a", "b", "x"]
+
+    def test_insert_clamps_large_negative(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.insert("items", index=-100, value="x")
+        assert doc2["items"] == ["x", "a", "b"]
+
+    def test_insert_complex_value(self):
+        doc = Document("repos:\n  - repo: a\n  - repo: c\n")
+        doc2 = doc.insert("repos", index=1, value={"repo": "b"})
+        repos = doc2["repos"]
+        assert repos[0] == {"repo": "a"}
+        assert repos[1] == {"repo": "b"}
+        assert repos[2] == {"repo": "c"}
+
+    def test_insert_preserves_comments(self):
+        source = "items:\n  # first\n  - a\n  # third\n  - c\n"
+        doc = Document(source)
+        doc2 = doc.insert("items", index=1, value="b")
+        assert "# first" in doc2.source
+        assert "# third" in doc2.source
+
+    def test_insert_immutable(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        doc2 = doc.insert("items", index=0, value="x")
+        assert doc["items"] == ["a", "b"]
+        assert doc2["items"] == ["x", "a", "b"]
+
+    def test_insert_not_a_sequence(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(PatchError):
+            doc.insert("name", index=0, value="x")
+
+    def test_insert_path_not_found(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(PatchError):
+            doc.insert("missing", index=0, value="x")
+
+    def test_insert_flow_sequence_error(self):
+        doc = Document("items: [a, b, c]\n")
+        with pytest.raises(PatchError, match="BlockSequence"):
+            doc.insert("items", index=1, value="x")
+
+    def test_insert_nested_path(self):
+        doc = Document("config:\n  items:\n    - a\n    - b\n")
+        doc2 = doc.insert("config", "items", index=1, value="x")
+        assert doc2["config", "items"] == ["a", "x", "b"]

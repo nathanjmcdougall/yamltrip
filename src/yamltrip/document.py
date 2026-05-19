@@ -270,6 +270,17 @@ class Document:
         patch = _core.Patch(route=route, operation=op)
         return self._apply_patches([patch])
 
+    def insert(self, *keys: KeyPart, index: int, value: Any) -> Document:
+        """Insert an item at a specific position in the sequence at path.
+
+        Uses Python list.insert() semantics for index resolution:
+        negative indices count from the end, out-of-range indices clamp.
+        """
+        route = _make_route(keys)
+        op = _core.Op.insert_at(index=index, value=value)
+        patch = _core.Patch(route=route, operation=op)
+        return self._apply_patches([patch])
+
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""
         if not values:

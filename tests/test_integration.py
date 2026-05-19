@@ -81,3 +81,41 @@ class TestEditorEndToEnd:
         assert reloaded["name"] == "Bob"
         assert reloaded["age"] == 25
         assert reloaded["items"] == ["x", "y"]
+
+
+class TestInsertPreCommitRepo:
+    """The primary use case: inserting a pre-commit repo at a specific position."""
+
+    def test_insert_repo_between_existing(self):
+        source = """\
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+  # ruff for linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.0
+    hooks:
+      - id: ruff
+"""
+        doc = yamltrip.Document(source)
+        new_repo = {
+            "repo": "https://github.com/psf/black",
+            "rev": "23.10.0",
+            "hooks": [{"id": "black"}],
+        }
+        doc2 = doc.insert("repos", index=1, value=new_repo)
+
+        # Verify ordering
+        repos = doc2["repos"]
+        assert repos[0]["repo"] == "https://github.com/pre-commit/pre-commit-hooks"
+        assert repos[1]["repo"] == "https://github.com/psf/black"
+        assert repos[2]["repo"] == "https://github.com/astral-sh/ruff-pre-commit"
+
+        # Verify comments preserved
+        assert "# ruff for linting" in doc2.source
+
+        # Verify the new repo content
+        assert "id: black" in doc2.source
+        assert "rev: 23.10.0" in doc2.source

@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-use crate::ops::PyPatch;
+use crate::ops::{LocalOp, OpInner, PyPatch};
 use crate::types::{PyFeature, PyFeatureKind, PyLocation, PyRoute};
 
 /// A parsed YAML document.
@@ -161,19 +161,30 @@ pub(crate) fn apply_patches_impl(
     let mut batch: Vec<usize> = Vec::new();
 
     for (idx, patch) in patches.iter().enumerate() {
-        let is_complex_replace = matches!(
-            &patch.operation.inner,
-            yamlpatch::Op::Replace(v) if matches!(v, serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_))
-        );
+        let needs_direct_handling = match &patch.operation.inner {
+            OpInner::Yamlpatch(yamlpatch::Op::Replace(v)) => {
+                matches!(
+                    v,
+                    serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)
+                )
+            }
+            OpInner::Local(_) => true,
+            _ => false,
+        };
 
-        if is_complex_replace {
+        if needs_direct_handling {
             // Flush any pending yamlpatch batch first
             if !batch.is_empty() {
                 let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
                     .iter()
-                    .map(|&i| yamlpatch::Patch {
-                        route: patches[i].route.to_yamlpath_route(),
-                        operation: patches[i].operation.inner.clone(),
+                    .filter_map(|&i| {
+                        patches[i]
+                            .operation
+                            .as_yamlpatch_op()
+                            .map(|op| yamlpatch::Patch {
+                                route: patches[i].route.to_yamlpath_route(),
+                                operation: op.clone(),
+                            })
                     })
                     .collect();
                 current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
@@ -181,18 +192,16 @@ pub(crate) fn apply_patches_impl(
                 batch.clear();
             }
 
-            // Apply the complex replace directly.
-            // NOTE: This re-parses the document for each complex replace (O(N) parses).
-            // This is consistent with yamlpatch::apply_yaml_patches, which also
-            // re-parses per patch via apply_single_patch. A bottom-up single-pass
-            // approach could avoid this, but isn't warranted until profiling shows
-            // it matters.
             let route = patch.route.to_yamlpath_route();
-            let value = match &patch.operation.inner {
-                yamlpatch::Op::Replace(v) => v,
+            match &patch.operation.inner {
+                OpInner::Yamlpatch(yamlpatch::Op::Replace(value)) => {
+                    current_doc = apply_complex_replace(&current_doc, &route, value)?;
+                }
+                OpInner::Local(LocalOp::InsertAt { index, value }) => {
+                    current_doc = apply_insert_at(&current_doc, &route, *index, value)?;
+                }
                 _ => unreachable!(),
-            };
-            current_doc = apply_complex_replace(&current_doc, &route, value)?;
+            }
         } else {
             batch.push(idx);
         }
@@ -202,9 +211,14 @@ pub(crate) fn apply_patches_impl(
     if !batch.is_empty() {
         let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
             .iter()
-            .map(|&i| yamlpatch::Patch {
-                route: patches[i].route.to_yamlpath_route(),
-                operation: patches[i].operation.inner.clone(),
+            .filter_map(|&i| {
+                patches[i]
+                    .operation
+                    .as_yamlpatch_op()
+                    .map(|op| yamlpatch::Patch {
+                        route: patches[i].route.to_yamlpath_route(),
+                        operation: op.clone(),
+                    })
             })
             .collect();
         current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
@@ -212,6 +226,101 @@ pub(crate) fn apply_patches_impl(
     }
 
     Ok(current_doc)
+}
+
+fn apply_insert_at(
+    doc: &yamlpath::Document,
+    route: &yamlpath::Route<'_>,
+    index: i64,
+    value: &serde_yaml::Value,
+) -> Result<yamlpath::Document, String> {
+    let source = doc.source();
+
+    // 1. Query the sequence feature and verify it's a block sequence
+    let feature = doc
+        .query_exact(route)
+        .map_err(|e| format!("Query failed: {e}"))?
+        .ok_or_else(|| "insert_at: sequence not found at route".to_string())?;
+
+    if feature.kind() != yamlpath::FeatureKind::BlockSequence {
+        return Err(format!(
+            "insert_at: expected BlockSequence, got {:?}",
+            feature.kind()
+        ));
+    }
+
+    // 2. Count items in the sequence
+    let mut len: i64 = 0;
+    loop {
+        let item_route = route.with_key(yamlpath::Component::Index(len as usize));
+        if !doc.query_exists(&item_route) {
+            break;
+        }
+        len += 1;
+    }
+
+    // 3. Resolve index with Python list.insert semantics
+    let resolved = if index < 0 {
+        0i64.max(len + index)
+    } else {
+        index.min(len)
+    } as usize;
+
+    // 4. Delegate to append if inserting at the end
+    if resolved as i64 == len {
+        let patch = yamlpatch::Patch {
+            route: route.clone(),
+            operation: yamlpatch::Op::Append {
+                value: value.clone(),
+            },
+        };
+        return yamlpatch::apply_yaml_patches(doc, &[patch]).map_err(|e| e.to_string());
+    }
+
+    // 5. Locate insertion byte position
+    let item_route = route.with_key(yamlpath::Component::Index(resolved));
+    let item_feature = doc
+        .query_exact(&item_route)
+        .map_err(|e| format!("Query failed: {e}"))?
+        .ok_or_else(|| format!("insert_at: item at index {resolved} not found"))?;
+
+    let item_start = item_feature.location.byte_span.0;
+    let line_start = source[..item_start]
+        .rfind('\n')
+        .map(|nl| nl + 1)
+        .unwrap_or(0);
+
+    // 6. Determine indentation from the existing item's line prefix
+    let prefix = &source[line_start..item_start];
+    let dash_pos = prefix.find('-').unwrap_or(prefix.len());
+    let base_indent = &prefix[..dash_pos];
+
+    // 7. Serialize new value as a sequence item
+    let serialized =
+        serde_yaml::to_string(value).map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+    let trimmed = serialized.trim_end_matches('\n');
+
+    let mut item_text = String::new();
+    for (i, line) in trimmed.lines().enumerate() {
+        if i == 0 {
+            item_text.push_str(base_indent);
+            item_text.push_str("- ");
+            item_text.push_str(line);
+        } else {
+            item_text.push('\n');
+            item_text.push_str(base_indent);
+            item_text.push_str("  ");
+            item_text.push_str(line);
+        }
+    }
+    item_text.push('\n');
+
+    // 8. String splice — insert before the target item's line
+    let mut result = source.to_string();
+    result.insert_str(line_start, &item_text);
+
+    // 9. Re-parse to validate
+    yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
 }
 
 fn apply_complex_replace(

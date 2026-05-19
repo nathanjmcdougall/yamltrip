@@ -125,6 +125,10 @@ class Editor:
         """Append an item to the sequence at path."""
         self._document = self.document.append(*keys, value=value)
 
+    def insert(self, *keys: KeyPart, index: int, value: Any) -> None:
+        """Insert an item at a specific position in the sequence at path."""
+        self._document = self.document.insert(*keys, index=index, value=value)
+
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> None:
         """Append multiple items to the sequence at path."""
         self._document = self.document.extend_list(*keys, values=values)

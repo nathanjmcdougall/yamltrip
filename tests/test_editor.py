@@ -123,6 +123,29 @@ class TestEditorOperations:
             assert "foo" in text
 
 
+class TestEditorInsert:
+    def test_insert_middle(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.insert("items", index=1, value="x")
+            assert editor["items"] == ["a", "x", "b"]
+
+    def test_insert_beginning(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.insert("items", index=0, value="x")
+            assert editor["items"] == ["x", "a", "b"]
+
+    def test_insert_persists_to_file(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.insert("items", index=1, value="x")
+        content = yaml_file.read_text(encoding="utf-8")
+        assert "- x" in content
+
+    def test_insert_negative(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.insert("items", index=-1, value="x")
+            assert editor["items"] == ["a", "x", "b"]
+
+
 class TestEditorGuards:
     def test_original_outside_context(self, yaml_file):
         editor = Editor(yaml_file)

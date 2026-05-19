@@ -1,4 +1,5 @@
 from yamltrip.document import Document
+from yamltrip.editor import Editor
 
 
 class TestSyncMappingAddKey:
@@ -174,3 +175,30 @@ class TestSyncNullValue:
         doc = Document("a: 1\n")
         doc2 = doc.sync("a", value=None)
         assert doc2["a"] is None
+
+
+class TestEditorSync:
+    def test_sync_mapping(self, tmp_path):
+        p = tmp_path / "test.yml"
+        p.write_text("a: 1\nb: 2\n", encoding="utf-8")
+        with Editor(p) as ed:
+            ed.sync(value={"a": 1, "b": 99, "c": 3})
+        content = p.read_text(encoding="utf-8")
+        assert "b: 99" in content
+        assert "c: 3" in content
+
+    def test_sync_noop_preserves_content(self, tmp_path):
+        p = tmp_path / "test.yml"
+        p.write_text("a: 1\nb: 2\n", encoding="utf-8")
+        with Editor(p) as ed:
+            ed.sync(value={"a": 1, "b": 2})
+        content = p.read_text(encoding="utf-8")
+        assert content == "a: 1\nb: 2\n"
+
+    def test_sync_with_path(self, tmp_path):
+        p = tmp_path / "test.yml"
+        p.write_text("top:\n  a: 1\n", encoding="utf-8")
+        with Editor(p) as ed:
+            ed.sync("top", value={"a": 2})
+        content = p.read_text(encoding="utf-8")
+        assert "a: 2" in content

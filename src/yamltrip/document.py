@@ -98,6 +98,14 @@ class Document:
         """The entire document parsed as a Python object."""
         return self[()]
 
+    def get(self, *keys: KeyPart, default: Any = None) -> Any:
+        """Return the parsed value at path, or default if the path doesn't exist."""
+        normalized = _normalize_keys(keys) if keys else ()
+        route = _make_route(normalized)
+        if not self._core_doc.query_exists(route):
+            return default
+        return self._core_doc.parse_value(route)
+
     def __eq__(self, other: object) -> bool:
         """Compare documents by their source text."""
         if not isinstance(other, Document):

@@ -88,6 +88,10 @@ class Editor:
         """The entire document parsed as a Python object."""
         return self.document.root
 
+    def get(self, *keys: KeyPart, default: Any = None) -> Any:
+        """Return the parsed value at path, or default if missing."""
+        return self.document.get(*keys, default=default)
+
     def __getitem__(self, keys: object) -> Any:
         """Retrieve the parsed value at the given path."""
         return self.document[keys]

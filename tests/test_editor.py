@@ -137,3 +137,22 @@ class TestEditorGuards:
     def test_repr(self, yaml_file):
         editor = Editor(yaml_file)
         assert "Editor(" in repr(editor)
+
+
+class TestEditorGet:
+    def test_get_existing_key(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            assert editor.get("name") == "foo"
+
+    def test_get_missing_key(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            assert editor.get("missing") is None
+
+    def test_get_missing_key_with_default(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            assert editor.get("missing", default="fallback") == "fallback"
+
+    def test_get_root(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            result = editor.get()
+            assert result["name"] == "foo"

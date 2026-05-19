@@ -100,11 +100,12 @@ class Document:
 
     def get(self, *keys: KeyPart, default: Any = None) -> Any:
         """Return the parsed value at path, or default if the path doesn't exist."""
-        normalized = _normalize_keys(keys) if keys else ()
+        normalized = _normalize_keys(keys)
         route = _make_route(normalized)
-        if not self._core_doc.query_exists(route):
+        try:
+            return self._core_doc.parse_value(route)
+        except KeyError:
             return default
-        return self._core_doc.parse_value(route)
 
     def __eq__(self, other: object) -> bool:
         """Compare documents by their source text."""

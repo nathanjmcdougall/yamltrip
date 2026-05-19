@@ -158,6 +158,19 @@ Use `serde_yaml::to_string` for the value portion, then prefix the first line wi
 
 No `IndexError` is raised — indices always clamp (matching `list.insert()` behavior).
 
+## Design Decisions
+
+**Leading comments on sequence items are not tracked by insertion.**
+
+When a sequence item has comment lines immediately above it (e.g. `# description` before `- value`), `query_exact` for that item returns only the value's span — the comment is not part of the feature location. The insertion point is computed as the start of the item's `- ` line, so a new item inserted before index N will appear *between* any leading comments and the item at index N. The comments visually become associated with the newly inserted item.
+
+This is by design because:
+- A comment above a block sequence item may describe the entire block (the sequence as a whole, or a group of items), not just the item on the next line. There is no way to determine intent from syntax alone.
+- yamlpath provides no mechanism to determine which comments "belong to" a given sequence item (comments are free-floating in YAML)
+- The existing behavior is predictable: insertion always occurs at the `- ` line boundary
+
+Users who need to preserve comment–item associations should structure their insertions to avoid splitting comments from their items (e.g. insert *after* the commented item rather than before it).
+
 ## Files Changed
 
 | File | Change |
@@ -180,7 +193,7 @@ No `IndexError` is raised — indices always clamp (matching `list.insert()` beh
 5. Negative out-of-range (`index=-100` prepends)
 6. Positive out-of-range (`index=100` appends)
 7. Complex value (dict with nested structure)
-8. Comment preservation — comments on items before and after insertion point are untouched
+8. Comment preservation — comments remain in the document (note: leading comments above an item may visually shift to the inserted item; see Known Limitations)
 9. Empty sequence (`index=0`)
 10. Single-item sequence (insert before and after)
 11. Value with special YAML characters (strings needing quoting)

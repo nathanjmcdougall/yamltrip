@@ -144,6 +144,59 @@ class TestDocumentContains:
         assert ("a", "c") not in doc
 
 
+class TestDocumentGet:
+    def test_empty_document_returns_default(self):
+        doc = Document("")
+        assert doc.get() is None
+
+    def test_comment_only_returns_default(self):
+        doc = Document("# just a comment\n")
+        assert doc.get() is None
+
+    def test_directive_only_returns_default(self):
+        doc = Document("---\n")
+        assert doc.get() is None
+
+    def test_root_value_returned(self):
+        doc = Document("name: foo\n")
+        assert doc.get() == {"name": "foo"}
+
+    def test_existing_key(self):
+        doc = Document("name: foo\nversion: 1\n")
+        assert doc.get("name") == "foo"
+
+    def test_missing_key_returns_none(self):
+        doc = Document("name: foo\n")
+        assert doc.get("missing") is None
+
+    def test_missing_key_returns_custom_default(self):
+        doc = Document("name: foo\n")
+        assert doc.get("missing", default={}) == {}
+
+    def test_nested_existing_path(self):
+        doc = Document("a:\n  b: 1\n")
+        assert doc.get("a", "b") == 1
+
+    def test_nested_missing_path(self):
+        doc = Document("a:\n  b: 1\n")
+        assert doc.get("a", "c") is None
+
+    def test_null_value_returns_none(self):
+        doc = Document("key: null\n")
+        assert doc.get("key") is None
+
+    def test_malformed_value_raises_query_error(self):
+        """get() should raise QueryError (not ValueError) for unparsable values."""
+        doc = Document("a:\n  b: 1\n  b: 2")
+        with pytest.raises(QueryError):
+            doc.get("a")
+
+    def test_root_still_raises_on_empty(self):
+        doc = Document("")
+        with pytest.raises(QueryError):
+            doc.root
+
+
 class TestDocumentInspection:
     def test_query_returns_feature(self):
         doc = Document("name: foo")

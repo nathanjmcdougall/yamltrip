@@ -184,6 +184,12 @@ class TestDocumentGet:
         doc = Document("key: null\n")
         assert doc.get("key") is None
 
+    def test_malformed_value_raises_query_error(self):
+        """get() should raise QueryError (not ValueError) for unparsable values."""
+        doc = Document("a:\n  b: 1\n  b: 2")
+        with pytest.raises(QueryError):
+            doc.get("a")
+
     def test_root_still_raises_on_empty(self):
         doc = Document("")
         with pytest.raises(QueryError):

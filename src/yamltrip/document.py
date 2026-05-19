@@ -106,6 +106,8 @@ class Document:
             return self._core_doc.parse_value(route)
         except KeyError:
             return default
+        except ValueError as e:
+            raise QueryError(str(e)) from None
 
     def __eq__(self, other: object) -> bool:
         """Compare documents by their source text."""

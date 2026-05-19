@@ -33,32 +33,6 @@ def get(self, *keys: KeyPart, default: Any = None) -> Any:
 
 `doc.get('key')` returns `None` both for "key missing" and "key has YAML null value". Callers who need to distinguish use `'key' in doc` first. This is the same trade-off as `dict.get()`.
 
-## Implementation
-
-### Document.get()
-
-```python
-def get(self, *keys: KeyPart, default: Any = None) -> Any:
-    """Return the parsed value at path, or default if the path doesn't exist."""
-    normalized = _normalize_keys(keys) if keys else ()
-    route = _make_route(normalized)
-    if not self._core_doc.query_exists(route):
-        return default
-    return self._core_doc.parse_value(route)
-```
-
-Uses `query_exists` (the same mechanism as `__contains__`) to check existence before accessing. No exception handling in the happy path.
-
-### Editor.get()
-
-Delegates to the underlying document:
-
-```python
-def get(self, *keys: KeyPart, default: Any = None) -> Any:
-    """Return the parsed value at path, or default if missing."""
-    return self._document.get(*keys, default=default)
-```
-
 ## Change Locations
 
 - `src/yamltrip/document.py` — add `get()` method to `Document`

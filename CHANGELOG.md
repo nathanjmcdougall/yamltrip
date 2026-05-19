@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+
+- Added `Document.insert()` and `Editor.insert()` for inserting an item at a specific position in a sequence. Uses Python `list.insert()` semantics (negative indices count from end, out-of-range clamps).
+- Added `Document.get()` and `Editor.get()` for non-raising value access. This returns a default (defaults to `None`) when the path doesn't exist, similar to `dict.get()`.
+- Added `Document.sync()` and `Editor.sync()` that diffs the current value at a path against a desired value and applies the minimal set of patches. Supports recursive mapping diffing and `SequenceMatcher`-based list diffing to preserve comments and formatting on unchanged elements.
+
+### Internal
+
+- Introduced `OpInner` enum in Rust to support local ops (like `insert_at`) alongside yamlpatch-delegated operations.
+- Extracted `KeyPart` type alias to `_types.py`.
+
 ## 0.3.0
 
 ### Features

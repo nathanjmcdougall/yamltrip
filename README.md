@@ -65,6 +65,9 @@ doc["items"]                  # ["a", "b"]
 doc["items", 0]               # "a"
 ("items", 0) in doc           # True
 
+doc.get("items", 0)               # "a" (returns None if missing)
+doc.get("missing", default=42)    # 42
+
 doc.replace("items", 0, value="x")
 doc.replace("items", value=["x", "y"])  # dicts and lists accepted
 doc.add("items", key="c", value=3)
@@ -73,8 +76,10 @@ doc.upsert("config", value={"debug": True})  # dicts and lists accepted
 doc.remove("items", 0)
 doc.prune_remove("a", "b", "c")  # remove + prune empty parents
 doc.append("items", value="c")
+doc.insert("items", index=1, value="between")  # positional insert
 doc.extend_list("items", values=["d", "e"])
 doc.remove_from_list("items", values=["a"])
+doc.sync("items", value=["a", "new", "b"])  # minimal diff-and-patch
 
 doc.query("items")            # Feature with location info
 doc.query_pretty("items")    # Feature with surrounding context
@@ -94,7 +99,9 @@ with yamltrip.edit("config.yml") as ed:
     ed.replace("version", value="2.0")
     ed.upsert("new_key", value="new_value")
     ed.remove("old_key")
+    ed.sync("deps", value={"a": "1.0", "b": "2.0"})  # minimal patching
     print(ed["version"])        # "2.0"
+    print(ed.get("missing"))    # None
     print(ed.original["version"])  # original value before edits
 ```
 
@@ -131,8 +138,9 @@ All yamltrip errors inherit from `YAMLTripError`:
 - **Integer keys cannot create structures.** `upsert()` with integer path
   components can update existing sequence entries but cannot create new
   intermediate mappings. Only string keys create new mappings.
-- **No negative sequence indices.** Python-style negative indexing is not
-  supported.
+- **No negative sequence indices for lookup.** Python-style negative indexing
+  is not supported for `[]` access or `replace()`/`remove()`. However,
+  `insert()` accepts negative indices (matching `list.insert()` semantics).
 - **Line endings preserved as-is.** No CRLF/LF normalization. Mixed line
   endings pass through unchanged.
 

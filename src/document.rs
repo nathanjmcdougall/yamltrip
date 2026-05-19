@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-use crate::ops::PyPatch;
+use crate::ops::{LocalOp, OpInner, PyPatch};
 use crate::types::{PyFeature, PyFeatureKind, PyLocation, PyRoute};
 
 /// A parsed YAML document.
@@ -161,19 +161,30 @@ pub(crate) fn apply_patches_impl(
     let mut batch: Vec<usize> = Vec::new();
 
     for (idx, patch) in patches.iter().enumerate() {
-        let is_complex_replace = matches!(
-            &patch.operation.inner,
-            yamlpatch::Op::Replace(v) if matches!(v, serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_))
-        );
+        let needs_direct_handling = match &patch.operation.inner {
+            OpInner::Yamlpatch(yamlpatch::Op::Replace(v)) => {
+                matches!(
+                    v,
+                    serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)
+                )
+            }
+            OpInner::Local(_) => true,
+            _ => false,
+        };
 
-        if is_complex_replace {
+        if needs_direct_handling {
             // Flush any pending yamlpatch batch first
             if !batch.is_empty() {
                 let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
                     .iter()
-                    .map(|&i| yamlpatch::Patch {
-                        route: patches[i].route.to_yamlpath_route(),
-                        operation: patches[i].operation.inner.clone(),
+                    .filter_map(|&i| {
+                        patches[i]
+                            .operation
+                            .as_yamlpatch_op()
+                            .map(|op| yamlpatch::Patch {
+                                route: patches[i].route.to_yamlpath_route(),
+                                operation: op.clone(),
+                            })
                     })
                     .collect();
                 current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
@@ -181,18 +192,16 @@ pub(crate) fn apply_patches_impl(
                 batch.clear();
             }
 
-            // Apply the complex replace directly.
-            // NOTE: This re-parses the document for each complex replace (O(N) parses).
-            // This is consistent with yamlpatch::apply_yaml_patches, which also
-            // re-parses per patch via apply_single_patch. A bottom-up single-pass
-            // approach could avoid this, but isn't warranted until profiling shows
-            // it matters.
             let route = patch.route.to_yamlpath_route();
-            let value = match &patch.operation.inner {
-                yamlpatch::Op::Replace(v) => v,
+            match &patch.operation.inner {
+                OpInner::Yamlpatch(yamlpatch::Op::Replace(value)) => {
+                    current_doc = apply_complex_replace(&current_doc, &route, value)?;
+                }
+                OpInner::Local(LocalOp::InsertAt { index, value }) => {
+                    current_doc = apply_insert_at(&current_doc, &route, *index, value)?;
+                }
                 _ => unreachable!(),
-            };
-            current_doc = apply_complex_replace(&current_doc, &route, value)?;
+            }
         } else {
             batch.push(idx);
         }
@@ -202,9 +211,14 @@ pub(crate) fn apply_patches_impl(
     if !batch.is_empty() {
         let yaml_patches: Vec<yamlpatch::Patch<'_>> = batch
             .iter()
-            .map(|&i| yamlpatch::Patch {
-                route: patches[i].route.to_yamlpath_route(),
-                operation: patches[i].operation.inner.clone(),
+            .filter_map(|&i| {
+                patches[i]
+                    .operation
+                    .as_yamlpatch_op()
+                    .map(|op| yamlpatch::Patch {
+                        route: patches[i].route.to_yamlpath_route(),
+                        operation: op.clone(),
+                    })
             })
             .collect();
         current_doc = yamlpatch::apply_yaml_patches(&current_doc, &yaml_patches)
@@ -212,6 +226,15 @@ pub(crate) fn apply_patches_impl(
     }
 
     Ok(current_doc)
+}
+
+fn apply_insert_at(
+    _doc: &yamlpath::Document,
+    _route: &yamlpath::Route<'_>,
+    _index: i64,
+    _value: &serde_yaml::Value,
+) -> Result<yamlpath::Document, String> {
+    Err("insert_at not yet implemented".to_string())
 }
 
 fn apply_complex_replace(

@@ -3,11 +3,27 @@ use pyo3::prelude::*;
 use crate::convert::py_to_yaml_value;
 use crate::types::PyRoute;
 
+/// Operations that yamltrip handles locally (not in yamlpatch).
+#[derive(Clone, Debug)]
+pub enum LocalOp {
+    InsertAt {
+        index: i64,
+        value: serde_yaml::Value,
+    },
+}
+
+/// The inner representation of a PyOp.
+#[derive(Clone, Debug)]
+pub enum OpInner {
+    Yamlpatch(yamlpatch::Op<'static>),
+    Local(LocalOp),
+}
+
 /// A YAML patch operation.
 #[pyclass(name = "Op", module = "yamltrip._core")]
 #[derive(Clone, Debug)]
 pub struct PyOp {
-    pub inner: yamlpatch::Op<'static>,
+    pub inner: OpInner,
 }
 
 #[pymethods]
@@ -16,7 +32,7 @@ impl PyOp {
     fn replace(value: &Bound<'_, PyAny>) -> PyResult<Self> {
         let val = py_to_yaml_value(value)?;
         Ok(Self {
-            inner: yamlpatch::Op::Replace(val),
+            inner: OpInner::Yamlpatch(yamlpatch::Op::Replace(val)),
         })
     }
 
@@ -24,17 +40,17 @@ impl PyOp {
     fn add(key: &str, value: &Bound<'_, PyAny>) -> PyResult<Self> {
         let val = py_to_yaml_value(value)?;
         Ok(Self {
-            inner: yamlpatch::Op::Add {
+            inner: OpInner::Yamlpatch(yamlpatch::Op::Add {
                 key: key.to_string(),
                 value: val,
-            },
+            }),
         })
     }
 
     #[staticmethod]
     fn remove() -> Self {
         Self {
-            inner: yamlpatch::Op::Remove,
+            inner: OpInner::Yamlpatch(yamlpatch::Op::Remove),
         }
     }
 
@@ -42,7 +58,15 @@ impl PyOp {
     fn append(value: &Bound<'_, PyAny>) -> PyResult<Self> {
         let val = py_to_yaml_value(value)?;
         Ok(Self {
-            inner: yamlpatch::Op::Append { value: val },
+            inner: OpInner::Yamlpatch(yamlpatch::Op::Append { value: val }),
+        })
+    }
+
+    #[staticmethod]
+    fn insert_at(index: i64, value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let val = py_to_yaml_value(value)?;
+        Ok(Self {
+            inner: OpInner::Local(LocalOp::InsertAt { index, value: val }),
         })
     }
 
@@ -65,56 +89,78 @@ impl PyOp {
             map.insert(key_str, val);
         }
         Ok(Self {
-            inner: yamlpatch::Op::MergeInto {
+            inner: OpInner::Yamlpatch(yamlpatch::Op::MergeInto {
                 key: key.to_string(),
                 updates: map,
-            },
+            }),
         })
     }
 
     fn __repr__(&self) -> String {
         match &self.inner {
-            yamlpatch::Op::Replace(val) => {
-                format!("Op.replace({})", yaml_value_repr(val))
-            }
-            yamlpatch::Op::Add { key, value } => {
-                format!("Op.add({}, {})", yaml_str_repr(key), yaml_value_repr(value))
-            }
-            yamlpatch::Op::Remove => "Op.remove()".to_string(),
-            yamlpatch::Op::Append { value } => {
-                format!("Op.append({})", yaml_value_repr(value))
-            }
-            yamlpatch::Op::MergeInto { key, .. } => {
-                format!("Op.merge_into({}, ...)", yaml_str_repr(key))
-            }
-            yamlpatch::Op::RewriteFragment { from, to } => {
-                format!(
-                    "Op.rewrite_fragment({}, {})",
-                    yaml_str_repr(&format!("{from:?}")),
-                    yaml_str_repr(to)
-                )
-            }
-            yamlpatch::Op::ReplaceComment { new } => {
-                format!("Op.replace_comment({})", yaml_str_repr(new))
-            }
-            yamlpatch::Op::EmplaceComment { new } => {
-                format!("Op.emplace_comment({})", yaml_str_repr(new))
-            }
+            OpInner::Yamlpatch(op) => match op {
+                yamlpatch::Op::Replace(val) => {
+                    format!("Op.replace({})", yaml_value_repr(val))
+                }
+                yamlpatch::Op::Add { key, value } => {
+                    format!("Op.add({}, {})", yaml_str_repr(key), yaml_value_repr(value))
+                }
+                yamlpatch::Op::Remove => "Op.remove()".to_string(),
+                yamlpatch::Op::Append { value } => {
+                    format!("Op.append({})", yaml_value_repr(value))
+                }
+                yamlpatch::Op::MergeInto { key, .. } => {
+                    format!("Op.merge_into({}, ...)", yaml_str_repr(key))
+                }
+                yamlpatch::Op::RewriteFragment { from, to } => {
+                    format!(
+                        "Op.rewrite_fragment({}, {})",
+                        yaml_str_repr(&format!("{from:?}")),
+                        yaml_str_repr(to)
+                    )
+                }
+                yamlpatch::Op::ReplaceComment { new } => {
+                    format!("Op.replace_comment({})", yaml_str_repr(new))
+                }
+                yamlpatch::Op::EmplaceComment { new } => {
+                    format!("Op.emplace_comment({})", yaml_str_repr(new))
+                }
+            },
+            OpInner::Local(local_op) => match local_op {
+                LocalOp::InsertAt { index, value } => {
+                    format!("Op.insert_at({}, {})", index, yaml_value_repr(value))
+                }
+            },
         }
     }
 
-    /// The kind of operation: "replace", "add", "remove", "append", or "merge_into".
+    /// The kind of operation: "replace", "add", "remove", "append", "merge_into", or "insert_at".
     #[getter]
     fn kind(&self) -> &str {
         match &self.inner {
-            yamlpatch::Op::Replace(_) => "replace",
-            yamlpatch::Op::Add { .. } => "add",
-            yamlpatch::Op::Remove => "remove",
-            yamlpatch::Op::Append { .. } => "append",
-            yamlpatch::Op::MergeInto { .. } => "merge_into",
-            yamlpatch::Op::RewriteFragment { .. } => "rewrite_fragment",
-            yamlpatch::Op::ReplaceComment { .. } => "replace_comment",
-            yamlpatch::Op::EmplaceComment { .. } => "emplace_comment",
+            OpInner::Yamlpatch(op) => match op {
+                yamlpatch::Op::Replace(_) => "replace",
+                yamlpatch::Op::Add { .. } => "add",
+                yamlpatch::Op::Remove => "remove",
+                yamlpatch::Op::Append { .. } => "append",
+                yamlpatch::Op::MergeInto { .. } => "merge_into",
+                yamlpatch::Op::RewriteFragment { .. } => "rewrite_fragment",
+                yamlpatch::Op::ReplaceComment { .. } => "replace_comment",
+                yamlpatch::Op::EmplaceComment { .. } => "emplace_comment",
+            },
+            OpInner::Local(local_op) => match local_op {
+                LocalOp::InsertAt { .. } => "insert_at",
+            },
+        }
+    }
+}
+
+impl PyOp {
+    /// Get the inner yamlpatch op, if this is a yamlpatch operation.
+    pub fn as_yamlpatch_op(&self) -> Option<&yamlpatch::Op<'static>> {
+        match &self.inner {
+            OpInner::Yamlpatch(op) => Some(op),
+            OpInner::Local(_) => None,
         }
     }
 }

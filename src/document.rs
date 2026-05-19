@@ -229,12 +229,98 @@ pub(crate) fn apply_patches_impl(
 }
 
 fn apply_insert_at(
-    _doc: &yamlpath::Document,
-    _route: &yamlpath::Route<'_>,
-    _index: i64,
-    _value: &serde_yaml::Value,
+    doc: &yamlpath::Document,
+    route: &yamlpath::Route<'_>,
+    index: i64,
+    value: &serde_yaml::Value,
 ) -> Result<yamlpath::Document, String> {
-    Err("insert_at not yet implemented".to_string())
+    let source = doc.source();
+
+    // 1. Query the sequence feature and verify it's a block sequence
+    let feature = doc
+        .query_exact(route)
+        .map_err(|e| format!("Query failed: {e}"))?
+        .ok_or_else(|| "insert_at: sequence not found at route".to_string())?;
+
+    if feature.kind() != yamlpath::FeatureKind::BlockSequence {
+        return Err(format!(
+            "insert_at: expected BlockSequence, got {:?}",
+            feature.kind()
+        ));
+    }
+
+    // 2. Count items in the sequence
+    let mut len: i64 = 0;
+    loop {
+        let item_route = route.with_key(yamlpath::Component::Index(len as usize));
+        if !doc.query_exists(&item_route) {
+            break;
+        }
+        len += 1;
+    }
+
+    // 3. Resolve index with Python list.insert semantics
+    let resolved = if index < 0 {
+        0i64.max(len + index)
+    } else {
+        index.min(len)
+    } as usize;
+
+    // 4. Delegate to append if inserting at the end
+    if resolved as i64 == len {
+        let patch = yamlpatch::Patch {
+            route: route.clone(),
+            operation: yamlpatch::Op::Append {
+                value: value.clone(),
+            },
+        };
+        return yamlpatch::apply_yaml_patches(doc, &[patch]).map_err(|e| e.to_string());
+    }
+
+    // 5. Locate insertion byte position
+    let item_route = route.with_key(yamlpath::Component::Index(resolved));
+    let item_feature = doc
+        .query_exact(&item_route)
+        .map_err(|e| format!("Query failed: {e}"))?
+        .ok_or_else(|| format!("insert_at: item at index {resolved} not found"))?;
+
+    let item_start = item_feature.location.byte_span.0;
+    let line_start = source[..item_start]
+        .rfind('\n')
+        .map(|nl| nl + 1)
+        .unwrap_or(0);
+
+    // 6. Determine indentation from the existing item's line prefix
+    let prefix = &source[line_start..item_start];
+    let dash_pos = prefix.find('-').unwrap_or(prefix.len());
+    let base_indent = &prefix[..dash_pos];
+
+    // 7. Serialize new value as a sequence item
+    let serialized =
+        serde_yaml::to_string(value).map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+    let trimmed = serialized.trim_end_matches('\n');
+
+    let mut item_text = String::new();
+    for (i, line) in trimmed.lines().enumerate() {
+        if i == 0 {
+            item_text.push_str(base_indent);
+            item_text.push_str("- ");
+            item_text.push_str(line);
+        } else {
+            item_text.push('\n');
+            item_text.push_str(base_indent);
+            item_text.push_str("  ");
+            item_text.push_str(line);
+        }
+    }
+    item_text.push('\n');
+
+    // 8. String splice — insert before the target item's line
+    let mut result = source.to_string();
+    result.insert_str(line_start, &item_text);
+
+    // 9. Re-parse to validate
+    yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
 }
 
 fn apply_complex_replace(

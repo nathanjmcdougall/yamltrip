@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from difflib import SequenceMatcher
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any
 
 from yamltrip import _core
 
-KeyPart: TypeAlias = "str | int"
+if TYPE_CHECKING:
+    from yamltrip._types import KeyPart
 
 
 def _compute_patches(
@@ -99,6 +100,8 @@ def _diff_lists(
             )
             patches.extend(replace_patches)
         elif tag == "insert":
+            # Indices assume patches are applied sequentially (each insert
+            # shifts subsequent positions). This matches _core.apply_patches.
             for k in range(j1, j2):
                 insert_idx = i1 + offset
                 route = _core.Route(list(path))

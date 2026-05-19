@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from yamltrip._core import Feature
-    from yamltrip.document import KeyPart
+    from yamltrip._types import KeyPart
 
 
 class Editor:

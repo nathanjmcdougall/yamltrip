@@ -187,7 +187,7 @@ class TestDocumentGet:
     def test_root_still_raises_on_empty(self):
         doc = Document("")
         with pytest.raises(QueryError):
-            _ = doc.root
+            doc.root
 
 
 class TestDocumentInspection:

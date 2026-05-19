@@ -202,3 +202,52 @@ class TestEditorSync:
             ed.sync("top", value={"a": 2})
         content = p.read_text(encoding="utf-8")
         assert "a: 2" in content
+
+
+class TestSyncIntegration:
+    def test_precommit_style_config(self):
+        source = (
+            "repos:\n"
+            "  # Formatting\n"
+            "  - repo: https://github.com/pre-commit/mirrors-prettier\n"
+            "    rev: v3.0.0\n"
+            "    hooks:\n"
+            "      - id: prettier\n"
+            "  # Linting\n"
+            "  - repo: https://github.com/astral-sh/ruff-pre-commit\n"
+            "    rev: v0.4.0\n"
+            "    hooks:\n"
+            "      - id: ruff\n"
+            "        args: [--fix]\n"
+        )
+        doc = Document(source)
+
+        new_repos = [
+            {
+                "repo": "https://github.com/pre-commit/mirrors-prettier",
+                "rev": "v3.0.0",
+                "hooks": [{"id": "prettier"}],
+            },
+            {
+                "repo": "https://github.com/astral-sh/ruff-pre-commit",
+                "rev": "v0.5.0",  # version bump
+                "hooks": [{"id": "ruff", "args": ["--fix"]}],
+            },
+        ]
+
+        doc2 = doc.sync("repos", value=new_repos)
+
+        # Version was bumped
+        assert doc2["repos", 1, "rev"] == "v0.5.0"
+        # First repo unchanged
+        assert doc2["repos", 0, "rev"] == "v3.0.0"
+        # Comments preserved
+        assert "# Formatting" in doc2.source
+        assert "# Linting" in doc2.source
+
+    def test_multi_level_sync(self):
+        source = "ci:\n  autofix_prs: true\n  skip:\n    - codespell\n    - ruff\n"
+        doc = Document(source)
+        doc2 = doc.sync("ci", value={"autofix_prs": False, "skip": ["codespell"]})
+        assert doc2["ci", "autofix_prs"] is False
+        assert doc2["ci", "skip"] == ["codespell"]

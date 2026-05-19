@@ -89,3 +89,25 @@ class TestSyncListOfDicts:
         )
         assert doc2["repos", 1, "rev"] == "v3"
         assert doc2["repos", 0, "rev"] == "v1"
+
+
+class TestSyncPreservesComments:
+    def test_mapping_comment_preserved_on_unchanged_key(self):
+        source = "# top comment\na: 1\n# b comment\nb: 2\n"
+        doc = Document(source)
+        doc2 = doc.sync(value={"a": 99, "b": 2})
+        assert "# b comment" in doc2.source
+        assert "# top comment" in doc2.source
+
+    def test_mapping_comment_preserved_on_changed_key(self):
+        source = "# a comment\na: 1\n# b comment\nb: 2\n"
+        doc = Document(source)
+        doc2 = doc.sync(value={"a": 1, "b": 99})
+        assert "# b comment" in doc2.source
+
+    def test_list_comment_preserved_on_unchanged_item(self):
+        source = "items:\n  # first\n  - a\n  # second\n  - b\n  # third\n  - c\n"
+        doc = Document(source)
+        doc2 = doc.sync("items", value=["a", "x", "c"])
+        assert "# first" in doc2.source
+        assert "# third" in doc2.source

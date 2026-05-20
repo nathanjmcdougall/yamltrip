@@ -9,6 +9,7 @@ from yamltrip import _core
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     ParseError,
     PatchError,
     QueryError,
@@ -307,7 +308,7 @@ class Document:
         current_list = self[keys]
         if not isinstance(current_list, list):
             msg = f"Value at {keys} is not a list"
-            raise PatchError(msg)
+            raise NodeTypeError(msg)
 
         values_list = list(values)
         indices_to_remove = sorted(

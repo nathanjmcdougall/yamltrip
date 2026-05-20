@@ -5,6 +5,7 @@ from yamltrip.document import Document
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     PatchError,
     QueryError,
 )
@@ -523,3 +524,15 @@ class TestDocumentInsert:
         doc = Document("config:\n  items:\n    - a\n    - b\n")
         doc2 = doc.insert("config", "items", index=1, value="x")
         assert doc2["config", "items"] == ["a", "x", "b"]
+
+
+class TestNodeTypeError:
+    def test_remove_from_list_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError, match="not a list"):
+            doc.remove_from_list("name", values=["foo"])
+
+    def test_remove_from_list_node_type_error_is_patch_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(PatchError):
+            doc.remove_from_list("name", values=["foo"])

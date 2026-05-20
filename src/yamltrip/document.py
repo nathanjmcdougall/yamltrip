@@ -353,4 +353,12 @@ class Document:
         patches = _compute_patches(old_value, value, normalized)
         if not patches:
             return self
-        return self._apply_patches(patches)
+        try:
+            return self._apply_patches(patches)
+        except PatchError as e:
+            if "expected BlockSequence" not in str(e):
+                raise
+            # Flow sequence — fall back to replacing the entire value
+            route = _make_route(normalized)
+            op = _core.Op.replace(value)
+            return self._apply_patches([_core.Patch(route=route, operation=op)])

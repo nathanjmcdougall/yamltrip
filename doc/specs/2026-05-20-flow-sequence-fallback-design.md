@@ -23,7 +23,7 @@ The error is surprising because callers expressed high-level intent ("append to 
 When a list-mutating operation hits a flow sequence, fall back to a get→mutate→replace strategy in Python. This eliminates the `PatchError` for flow sequences at the cost of losing inline formatting (flow → block conversion), which is acceptable because:
 
 1. An empty flow sequence (`[]`) has no formatting to preserve.
-2. A non-empty flow sequence has comments stripped by definition (flow syntax cannot contain comments).
+2. A non-empty single-line flow sequence cannot contain comments; multi-line flow sequences could in theory, but are vanishingly rare in practice.
 3. The alternative is crashing.
 
 ### Affected Methods

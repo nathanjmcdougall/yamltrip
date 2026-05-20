@@ -10,6 +10,7 @@ from yamltrip.editor import Editor
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     ParseError,
     PatchError,
     QueryError,
@@ -46,6 +47,7 @@ __all__ = [
     "KeyExistsError",
     "KeyMissingError",
     "Location",
+    "NodeTypeError",
     "ParseError",
     "PatchError",
     "QueryError",

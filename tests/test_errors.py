@@ -3,6 +3,7 @@ import pytest
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     ParseError,
     PatchError,
     QueryError,
@@ -28,6 +29,10 @@ class TestErrorHierarchy:
 
     def test_key_missing_error(self):
         assert issubclass(KeyMissingError, PatchError)
+
+    def test_node_type_error_inherits_patch_error_and_type_error(self):
+        assert issubclass(NodeTypeError, PatchError)
+        assert issubclass(NodeTypeError, TypeError)
 
     def test_raise_and_catch_base(self):
         msg = "key already exists"

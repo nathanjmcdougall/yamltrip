@@ -5,6 +5,7 @@ from yamltrip.document import Document
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     PatchError,
     QueryError,
 )
@@ -443,6 +444,26 @@ class TestDocumentAppend:
         assert "b" in result
         assert "c" in result
 
+    def test_append_flow_sequence(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.append("items", value="c")
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_append_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.append("items", value="x")
+        assert doc2["items"] == ["x"]
+
+    def test_extend_list_flow_sequence(self):
+        doc = Document("items: [a]\n")
+        doc2 = doc.extend_list("items", values=["b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_extend_list_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.extend_list("items", values=["a", "b"])
+        assert doc2["items"] == ["a", "b"]
+
     def test_remove_from_list(self):
         doc = Document("items:\n  - a\n  - b\n  - c")
         doc2 = doc.remove_from_list("items", values=["b"])
@@ -514,12 +535,59 @@ class TestDocumentInsert:
         with pytest.raises(PatchError):
             doc.insert("missing", index=0, value="x")
 
-    def test_insert_flow_sequence_error(self):
+    def test_insert_flow_sequence_converts_to_block(self):
         doc = Document("items: [a, b, c]\n")
-        with pytest.raises(PatchError, match="BlockSequence"):
-            doc.insert("items", index=1, value="x")
+        doc2 = doc.insert("items", index=1, value="x")
+        assert doc2["items"] == ["a", "x", "b", "c"]
+
+    def test_insert_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.insert("items", index=0, value="x")
+        assert doc2["items"] == ["x"]
+
+    def test_insert_flow_sequence_append_semantics(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.insert("items", index=99, value="c")
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_insert_flow_sequence_negative_index(self):
+        doc = Document("items: [a, b, c]\n")
+        doc2 = doc.insert("items", index=-1, value="x")
+        assert doc2["items"] == ["a", "b", "x", "c"]
 
     def test_insert_nested_path(self):
         doc = Document("config:\n  items:\n    - a\n    - b\n")
         doc2 = doc.insert("config", "items", index=1, value="x")
         assert doc2["config", "items"] == ["a", "x", "b"]
+
+
+class TestNodeTypeError:
+    def test_remove_from_list_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError, match="not a list"):
+            doc.remove_from_list("name", values=["foo"])
+
+    def test_remove_from_list_node_type_error_is_patch_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(PatchError):
+            doc.remove_from_list("name", values=["foo"])
+
+    def test_append_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.append("name", value="bar")
+
+    def test_append_on_mapping_raises_node_type_error(self):
+        doc = Document("config:\n  a: 1\n")
+        with pytest.raises(NodeTypeError):
+            doc.append("config", value="x")
+
+    def test_insert_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.insert("name", index=0, value="bar")
+
+    def test_extend_list_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.extend_list("name", values=["a", "b"])

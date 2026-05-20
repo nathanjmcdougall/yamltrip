@@ -170,6 +170,55 @@ class TestSyncEmptyValues:
         assert doc2["items"] == []
 
 
+class TestSyncFlowSequence:
+    def test_sync_empty_flow_sequence_to_nonempty(self):
+        doc = Document("repos: []\n")
+        doc2 = doc.sync("repos", value=["a", "b"])
+        assert doc2["repos"] == ["a", "b"]
+
+    def test_sync_nonempty_flow_sequence_append(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.sync("items", value=["a", "b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_sync_nonempty_flow_sequence_insert(self):
+        doc = Document("items: [a, c]\n")
+        doc2 = doc.sync("items", value=["a", "b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_sync_flow_sequence_replace_only_no_fallback_needed(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.sync("items", value=["x", "y"])
+        assert doc2["items"] == ["x", "y"]
+
+    def test_sync_flow_sequence_to_empty(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.sync("items", value=[])
+        assert doc2["items"] == []
+
+    def test_sync_flow_sequence_nested_in_mapping(self):
+        doc = Document("config:\n  items: []\n")
+        doc2 = doc.sync("config", "items", value=["x"])
+        assert doc2["config", "items"] == ["x"]
+
+    def test_sync_flow_sequence_preserves_sibling_formatting(self):
+        doc = Document("config:\n  name: foo  # important\n  items: []\n")
+        doc2 = doc.sync("config", value={"name": "foo", "items": ["a"]})
+        assert doc2["config", "items"] == ["a"]
+        assert "# important" in doc2.source
+
+    def test_sync_flow_sequence_nested_in_list_of_dicts(self):
+        doc = Document("items:\n  - repos: []\n    name: foo\n")
+        doc2 = doc.sync("items", value=[{"repos": ["new-repo"], "name": "foo"}])
+        assert doc2["items", 0, "repos"] == ["new-repo"]
+
+    def test_sync_flow_sequence_nested_in_list_of_dicts_multiple(self):
+        doc = Document("items:\n  - tags: []\n  - tags: [a]\n")
+        doc2 = doc.sync("items", value=[{"tags": ["x"]}, {"tags": ["a", "b"]}])
+        assert doc2["items", 0, "tags"] == ["x"]
+        assert doc2["items", 1, "tags"] == ["a", "b"]
+
+
 class TestSyncNullValue:
     def test_sync_to_none(self):
         doc = Document("a: 1\n")

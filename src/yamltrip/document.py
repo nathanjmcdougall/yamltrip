@@ -9,6 +9,7 @@ from yamltrip import _core
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
+    NodeTypeError,
     ParseError,
     PatchError,
     QueryError,
@@ -48,6 +49,46 @@ def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
                 "only string keys can create new mappings"
             )
             raise PatchError(msg)
+
+
+def _flow_seq_replacements(
+    core_doc: _core.Document,
+    old_value: Any,
+    new_value: Any,
+    path: tuple[KeyPart, ...],
+) -> list[_core.Patch]:
+    """Find flow sequences that need modification and emit targeted replace patches."""
+    patches: list[_core.Patch] = []
+
+    if isinstance(old_value, list) and isinstance(new_value, list):
+        if old_value != new_value:
+            route = _make_route(path)
+            try:
+                feature = core_doc.query_exact(route)
+                if feature and feature.kind == _core.FeatureKind.FlowSequence:
+                    patches.append(
+                        _core.Patch(route=route, operation=_core.Op.replace(new_value))
+                    )
+                    return patches
+            except (KeyError, ValueError):
+                pass
+            # Recurse into shared list elements to find nested flow sequences
+            for i in range(min(len(old_value), len(new_value))):
+                sub_patches = _flow_seq_replacements(
+                    core_doc, old_value[i], new_value[i], (*path, i)
+                )
+                patches.extend(sub_patches)
+        return patches
+
+    if isinstance(old_value, dict) and isinstance(new_value, dict):
+        for key in new_value:
+            if key in old_value:
+                sub_patches = _flow_seq_replacements(
+                    core_doc, old_value[key], new_value[key], (*path, key)
+                )
+                patches.extend(sub_patches)
+
+    return patches
 
 
 class Document:
@@ -279,7 +320,21 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.append(value)
         patch = _core.Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            return self._apply_patches([patch])
+        except PatchError as e:
+            msg = str(e)
+            # yamlpatch raises "...flow sequence..." for append on FlowSequence nodes
+            if "flow sequence" in msg:
+                current = self[keys]
+                new_list = [*list(current), value]
+                replace_op = _core.Op.replace(new_list)
+                return self._apply_patches(
+                    [_core.Patch(route=route, operation=replace_op)]
+                )
+            if "only permitted against sequence" in msg:
+                raise NodeTypeError(msg) from None
+            raise
 
     def insert(self, *keys: KeyPart, index: int, value: Any) -> Document:
         """Insert an item at a specific position in the sequence at path.
@@ -290,7 +345,21 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.insert_at(index=index, value=value)
         patch = _core.Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            return self._apply_patches([patch])
+        except PatchError as e:
+            msg = str(e)
+            # Rust apply_insert_at raises "expected BlockSequence, got ..." for
+            # both FlowSequence and non-sequence nodes (Scalar, BlockMapping, etc.)
+            if "expected BlockSequence" not in msg:
+                raise
+            current = self[keys]
+            if not isinstance(current, list):
+                raise NodeTypeError(msg) from None
+            new_list = list(current)
+            new_list.insert(index, value)
+            replace_op = _core.Op.replace(new_list)
+            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""
@@ -300,14 +369,28 @@ class Document:
         patches = [
             _core.Patch(route=route, operation=_core.Op.append(v)) for v in values
         ]
-        return self._apply_patches(patches)
+        try:
+            return self._apply_patches(patches)
+        except PatchError as e:
+            msg = str(e)
+            # yamlpatch raises "...flow sequence..." for append on FlowSequence nodes
+            if "flow sequence" in msg:
+                current = self[keys]
+                new_list = [*list(current), *values]
+                replace_op = _core.Op.replace(new_list)
+                return self._apply_patches(
+                    [_core.Patch(route=route, operation=replace_op)]
+                )
+            if "only permitted against sequence" in msg:
+                raise NodeTypeError(msg) from None
+            raise
 
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Remove all occurrences of given values from the sequence at path."""
         current_list = self[keys]
         if not isinstance(current_list, list):
             msg = f"Value at {keys} is not a list"
-            raise PatchError(msg)
+            raise NodeTypeError(msg)
 
         values_list = list(values)
         indices_to_remove = sorted(
@@ -349,7 +432,27 @@ class Document:
         except (ValueError, KeyError):
             return self.upsert(*normalized, value=value)
 
+        # Pre-convert any flow sequences that will be modified.
+        # This targets only the affected leaf paths, preserving sibling formatting.
+        doc: Document = self
+        flow_patches = _flow_seq_replacements(
+            self._core_doc, old_value, value, normalized
+        )
+        if flow_patches:
+            doc = doc._apply_patches(flow_patches)
+            # Re-read old_value from the now-converted document
+            old_value = doc._core_doc.parse_value(_make_route(normalized))
+
         patches = _compute_patches(old_value, value, normalized)
         if not patches:
-            return self
-        return self._apply_patches(patches)
+            return doc
+        try:
+            return doc._apply_patches(patches)
+        except PatchError as e:
+            if "expected BlockSequence" not in str(e):
+                raise
+            # Fallback: a flow sequence was missed by pre-detection (e.g. due to
+            # list reordering). Replace the entire synced value.
+            route = _make_route(normalized)
+            op = _core.Op.replace(value)
+            return self._apply_patches([_core.Patch(route=route, operation=op)])

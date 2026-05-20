@@ -51,6 +51,39 @@ def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
             raise PatchError(msg)
 
 
+def _flow_seq_replacements(
+    core_doc: _core.Document,
+    old_value: Any,
+    new_value: Any,
+    path: tuple[KeyPart, ...],
+) -> list[_core.Patch]:
+    """Find flow sequences that need modification and emit targeted replace patches."""
+    patches: list[_core.Patch] = []
+
+    if isinstance(old_value, list) and isinstance(new_value, list):
+        if old_value != new_value:
+            route = _make_route(path)
+            try:
+                feature = core_doc.query_exact(route)
+                if feature and feature.kind == _core.FeatureKind.FlowSequence:
+                    patches.append(
+                        _core.Patch(route=route, operation=_core.Op.replace(new_value))
+                    )
+            except (KeyError, ValueError):
+                pass
+        return patches
+
+    if isinstance(old_value, dict) and isinstance(new_value, dict):
+        for key in new_value:
+            if key in old_value:
+                sub_patches = _flow_seq_replacements(
+                    core_doc, old_value[key], new_value[key], (*path, key)
+                )
+                patches.extend(sub_patches)
+
+    return patches
+
+
 class Document:
     """An immutable YAML document.
 
@@ -377,15 +410,18 @@ class Document:
         except (ValueError, KeyError):
             return self.upsert(*normalized, value=value)
 
+        # Pre-convert any flow sequences that will be modified.
+        # This targets only the affected leaf paths, preserving sibling formatting.
+        doc: Document = self
+        flow_patches = _flow_seq_replacements(
+            self._core_doc, old_value, value, normalized
+        )
+        if flow_patches:
+            doc = doc._apply_patches(flow_patches)
+            # Re-read old_value from the now-converted document
+            old_value = doc._core_doc.parse_value(_make_route(normalized))
+
         patches = _compute_patches(old_value, value, normalized)
         if not patches:
-            return self
-        try:
-            return self._apply_patches(patches)
-        except PatchError as e:
-            if "expected BlockSequence" not in str(e):
-                raise
-            # Flow sequence — fall back to replacing the entire value
-            route = _make_route(normalized)
-            op = _core.Op.replace(value)
-            return self._apply_patches([_core.Patch(route=route, operation=op)])
+            return doc
+        return doc._apply_patches(patches)

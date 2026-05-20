@@ -201,6 +201,12 @@ class TestSyncFlowSequence:
         doc2 = doc.sync("config", "items", value=["x"])
         assert doc2["config", "items"] == ["x"]
 
+    def test_sync_flow_sequence_preserves_sibling_formatting(self):
+        doc = Document("config:\n  name: foo  # important\n  items: []\n")
+        doc2 = doc.sync("config", value={"name": "foo", "items": ["a"]})
+        assert doc2["config", "items"] == ["a"]
+        assert "# important" in doc2.source
+
 
 class TestSyncNullValue:
     def test_sync_to_none(self):

@@ -571,3 +571,23 @@ class TestNodeTypeError:
         doc = Document("name: foo\n")
         with pytest.raises(PatchError):
             doc.remove_from_list("name", values=["foo"])
+
+    def test_append_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.append("name", value="bar")
+
+    def test_append_on_mapping_raises_node_type_error(self):
+        doc = Document("config:\n  a: 1\n")
+        with pytest.raises(NodeTypeError):
+            doc.append("config", value="x")
+
+    def test_insert_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.insert("name", index=0, value="bar")
+
+    def test_extend_list_on_scalar_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.extend_list("name", values=["a", "b"])

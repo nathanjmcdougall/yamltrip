@@ -316,12 +316,18 @@ class Document:
         try:
             return self._apply_patches([patch])
         except PatchError as e:
-            if "flow sequence" not in str(e):
-                raise
-            current = self[keys]
-            new_list = [*list(current), value]
-            replace_op = _core.Op.replace(new_list)
-            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
+            msg = str(e)
+            # yamlpatch raises "...flow sequence..." for append on FlowSequence nodes
+            if "flow sequence" in msg:
+                current = self[keys]
+                new_list = [*list(current), value]
+                replace_op = _core.Op.replace(new_list)
+                return self._apply_patches(
+                    [_core.Patch(route=route, operation=replace_op)]
+                )
+            if "only permitted against sequence" in msg:
+                raise NodeTypeError(msg) from None
+            raise
 
     def insert(self, *keys: KeyPart, index: int, value: Any) -> Document:
         """Insert an item at a specific position in the sequence at path.
@@ -335,11 +341,14 @@ class Document:
         try:
             return self._apply_patches([patch])
         except PatchError as e:
-            if "expected BlockSequence" not in str(e):
+            msg = str(e)
+            # Rust apply_insert_at raises "expected BlockSequence, got ..." for
+            # both FlowSequence and non-sequence nodes (Scalar, BlockMapping, etc.)
+            if "expected BlockSequence" not in msg:
                 raise
             current = self[keys]
             if not isinstance(current, list):
-                raise
+                raise NodeTypeError(msg) from None
             new_list = list(current)
             new_list.insert(index, value)
             replace_op = _core.Op.replace(new_list)
@@ -356,12 +365,18 @@ class Document:
         try:
             return self._apply_patches(patches)
         except PatchError as e:
-            if "flow sequence" not in str(e):
-                raise
-            current = self[keys]
-            new_list = list(current) + list(values)
-            replace_op = _core.Op.replace(new_list)
-            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
+            msg = str(e)
+            # yamlpatch raises "...flow sequence..." for append on FlowSequence nodes
+            if "flow sequence" in msg:
+                current = self[keys]
+                new_list = [*list(current), *values]
+                replace_op = _core.Op.replace(new_list)
+                return self._apply_patches(
+                    [_core.Patch(route=route, operation=replace_op)]
+                )
+            if "only permitted against sequence" in msg:
+                raise NodeTypeError(msg) from None
+            raise
 
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Remove all occurrences of given values from the sequence at path."""

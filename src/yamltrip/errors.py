@@ -23,3 +23,7 @@ class KeyExistsError(PatchError):
 
 class KeyMissingError(PatchError):
     """Raised by replace() when the key doesn't exist."""
+
+
+class NodeTypeError(PatchError, TypeError):
+    """Raised when a node is not the expected type for the operation."""

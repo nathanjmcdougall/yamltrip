@@ -515,10 +515,25 @@ class TestDocumentInsert:
         with pytest.raises(PatchError):
             doc.insert("missing", index=0, value="x")
 
-    def test_insert_flow_sequence_error(self):
+    def test_insert_flow_sequence_converts_to_block(self):
         doc = Document("items: [a, b, c]\n")
-        with pytest.raises(PatchError, match="BlockSequence"):
-            doc.insert("items", index=1, value="x")
+        doc2 = doc.insert("items", index=1, value="x")
+        assert doc2["items"] == ["a", "x", "b", "c"]
+
+    def test_insert_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.insert("items", index=0, value="x")
+        assert doc2["items"] == ["x"]
+
+    def test_insert_flow_sequence_append_semantics(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.insert("items", index=99, value="c")
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_insert_flow_sequence_negative_index(self):
+        doc = Document("items: [a, b, c]\n")
+        doc2 = doc.insert("items", index=-1, value="x")
+        assert doc2["items"] == ["a", "b", "x", "c"]
 
     def test_insert_nested_path(self):
         doc = Document("config:\n  items:\n    - a\n    - b\n")

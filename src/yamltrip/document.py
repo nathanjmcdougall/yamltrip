@@ -291,7 +291,18 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.insert_at(index=index, value=value)
         patch = _core.Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            return self._apply_patches([patch])
+        except PatchError as e:
+            if "expected BlockSequence" not in str(e):
+                raise
+            current = self[keys]
+            if not isinstance(current, list):
+                raise
+            new_list = list(current)
+            new_list.insert(index, value)
+            replace_op = _core.Op.replace(new_list)
+            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""

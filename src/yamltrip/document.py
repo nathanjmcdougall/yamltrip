@@ -69,8 +69,15 @@ def _flow_seq_replacements(
                     patches.append(
                         _core.Patch(route=route, operation=_core.Op.replace(new_value))
                     )
+                    return patches
             except (KeyError, ValueError):
                 pass
+            # Recurse into shared list elements to find nested flow sequences
+            for i in range(min(len(old_value), len(new_value))):
+                sub_patches = _flow_seq_replacements(
+                    core_doc, old_value[i], new_value[i], (*path, i)
+                )
+                patches.extend(sub_patches)
         return patches
 
     if isinstance(old_value, dict) and isinstance(new_value, dict):
@@ -439,4 +446,13 @@ class Document:
         patches = _compute_patches(old_value, value, normalized)
         if not patches:
             return doc
-        return doc._apply_patches(patches)
+        try:
+            return doc._apply_patches(patches)
+        except PatchError as e:
+            if "expected BlockSequence" not in str(e):
+                raise
+            # Fallback: a flow sequence was missed by pre-detection (e.g. due to
+            # list reordering). Replace the entire synced value.
+            route = _make_route(normalized)
+            op = _core.Op.replace(value)
+            return self._apply_patches([_core.Patch(route=route, operation=op)])

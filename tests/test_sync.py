@@ -207,6 +207,17 @@ class TestSyncFlowSequence:
         assert doc2["config", "items"] == ["a"]
         assert "# important" in doc2.source
 
+    def test_sync_flow_sequence_nested_in_list_of_dicts(self):
+        doc = Document("items:\n  - repos: []\n    name: foo\n")
+        doc2 = doc.sync("items", value=[{"repos": ["new-repo"], "name": "foo"}])
+        assert doc2["items", 0, "repos"] == ["new-repo"]
+
+    def test_sync_flow_sequence_nested_in_list_of_dicts_multiple(self):
+        doc = Document("items:\n  - tags: []\n  - tags: [a]\n")
+        doc2 = doc.sync("items", value=[{"tags": ["x"]}, {"tags": ["a", "b"]}])
+        assert doc2["items", 0, "tags"] == ["x"]
+        assert doc2["items", 1, "tags"] == ["a", "b"]
+
 
 class TestSyncNullValue:
     def test_sync_to_none(self):

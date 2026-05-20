@@ -280,7 +280,15 @@ class Document:
         route = _make_route(keys)
         op = _core.Op.append(value)
         patch = _core.Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            return self._apply_patches([patch])
+        except PatchError as e:
+            if "flow sequence" not in str(e):
+                raise
+            current = self[keys]
+            new_list = [*list(current), value]
+            replace_op = _core.Op.replace(new_list)
+            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
 
     def insert(self, *keys: KeyPart, index: int, value: Any) -> Document:
         """Insert an item at a specific position in the sequence at path.
@@ -312,7 +320,15 @@ class Document:
         patches = [
             _core.Patch(route=route, operation=_core.Op.append(v)) for v in values
         ]
-        return self._apply_patches(patches)
+        try:
+            return self._apply_patches(patches)
+        except PatchError as e:
+            if "flow sequence" not in str(e):
+                raise
+            current = self[keys]
+            new_list = list(current) + list(values)
+            replace_op = _core.Op.replace(new_list)
+            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
 
     def remove_from_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Remove all occurrences of given values from the sequence at path."""

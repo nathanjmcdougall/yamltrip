@@ -444,6 +444,26 @@ class TestDocumentAppend:
         assert "b" in result
         assert "c" in result
 
+    def test_append_flow_sequence(self):
+        doc = Document("items: [a, b]\n")
+        doc2 = doc.append("items", value="c")
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_append_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.append("items", value="x")
+        assert doc2["items"] == ["x"]
+
+    def test_extend_list_flow_sequence(self):
+        doc = Document("items: [a]\n")
+        doc2 = doc.extend_list("items", values=["b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_extend_list_empty_flow_sequence(self):
+        doc = Document("items: []\n")
+        doc2 = doc.extend_list("items", values=["a", "b"])
+        assert doc2["items"] == ["a", "b"]
+
     def test_remove_from_list(self):
         doc = Document("items:\n  - a\n  - b\n  - c")
         doc2 = doc.remove_from_list("items", values=["b"])

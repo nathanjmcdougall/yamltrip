@@ -832,3 +832,14 @@ class TestEnsureInList:
         doc = Document("items: [a, b]\n")
         result = doc.ensure_in_list("items", value="a")
         assert result.source == doc.source
+
+    def test_nested_path_missing_creates(self):
+        doc = Document("config:\n  name: foo\n")
+        result = doc.ensure_in_list("config", "hooks", value="pre-commit")
+        assert result["config", "hooks"] == ["pre-commit"]
+
+    def test_deeply_nested_path(self):
+        doc = Document("a:\n  b: 1\n")
+        result = doc.ensure_in_list("a", "c", value="x")
+        assert result["a", "c"] == ["x"]
+        assert result["a", "b"] == 1

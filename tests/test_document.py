@@ -745,3 +745,106 @@ class TestEmptyDocumentErrors:
             PatchError, match="Cannot replace root of an empty document"
         ):
             doc.upsert(value=42)
+
+
+class TestEnsureInList:
+    def test_scalar_already_present_noop(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list("items", value="a")
+        assert result.source == doc.source
+
+    def test_scalar_missing_appends(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list("items", value="c")
+        assert result["items"] == ["a", "b", "c"]
+
+    def test_integer_value(self):
+        doc = Document("ports:\n  - 8080\n  - 9090\n")
+        result = doc.ensure_in_list("ports", value=8080)
+        assert result.source == doc.source
+
+    def test_path_missing_creates_list(self):
+        doc = Document("name: foo\n")
+        result = doc.ensure_in_list("items", value="first")
+        assert result["items"] == ["first"]
+
+    def test_path_not_a_list_raises(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.ensure_in_list("name", value="bar")
+
+    def test_path_is_mapping_raises(self):
+        doc = Document("config:\n  host: localhost\n  port: 8080\n")
+        with pytest.raises(NodeTypeError):
+            doc.ensure_in_list("config", value="x")
+
+    def test_idempotent(self):
+        doc = Document("items:\n  - a\n")
+        result1 = doc.ensure_in_list("items", value="b")
+        result2 = result1.ensure_in_list("items", value="b")
+        assert result1.source == result2.source
+
+    def test_where_match_found_noop(self):
+        doc = Document(
+            "repos:\n  - repo: https://a\n    rev: v1\n  - repo: https://b\n    rev: v2\n"
+        )
+        result = doc.ensure_in_list(
+            "repos",
+            where={"repo": "https://a"},
+            value={"repo": "https://a", "rev": "v1"},
+        )
+        assert result.source == doc.source
+
+    def test_where_no_match_appends(self):
+        doc = Document("repos:\n  - repo: https://a\n    rev: v1\n")
+        result = doc.ensure_in_list(
+            "repos",
+            where={"repo": "https://b"},
+            value={"repo": "https://b", "rev": "v2"},
+        )
+        assert result["repos", 1] == {"repo": "https://b", "rev": "v2"}
+
+    def test_where_empty_raises(self):
+        doc = Document("items:\n  - a\n")
+        with pytest.raises(ValueError, match="where must be a non-empty dict"):
+            doc.ensure_in_list("items", where={}, value="x")
+
+    def test_where_items_not_dicts_appends(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list(
+            "items",
+            where={"name": "foo"},
+            value={"name": "foo"},
+        )
+        assert result["items"] == ["a", "b", {"name": "foo"}]
+
+    def test_where_multiple_keys_all_must_match(self):
+        doc = Document("items:\n  - name: foo\n    ver: 1\n  - name: bar\n    ver: 2\n")
+        result = doc.ensure_in_list(
+            "items",
+            where={"name": "foo", "ver": 2},
+            value={"name": "foo", "ver": 2},
+        )
+        # Neither item matches both (foo has ver=1, bar has ver=2)
+        assert len(result["items"]) == 3
+
+    def test_flow_sequence_appends(self):
+        doc = Document("items: [a, b]\n")
+        result = doc.ensure_in_list("items", value="c")
+        assert result["items"] == ["a", "b", "c"]
+
+    def test_flow_sequence_noop(self):
+        doc = Document("items: [a, b]\n")
+        result = doc.ensure_in_list("items", value="a")
+        assert result.source == doc.source
+
+    def test_nested_path_missing_creates(self):
+        doc = Document("config:\n  name: foo\n")
+        result = doc.ensure_in_list("config", "hooks", value="pre-commit")
+        assert result["config", "hooks"] == ["pre-commit"]
+
+    def test_deeply_nested_path(self):
+        doc = Document("a:\n  b: 1\n")
+        result = doc.ensure_in_list("a", "c", value="x")
+        assert result["a", "c"] == ["x"]
+        assert result["a", "b"] == 1

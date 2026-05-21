@@ -438,6 +438,53 @@ class Document:
         ]
         return self._apply_patches(patches)
 
+    def ensure_in_list(
+        self, *keys: KeyPart, value: Any, where: dict[str, Any] | None = None
+    ) -> Document:
+        """Ensure a value is present in the sequence at path.
+
+        If the value is already present, returns self unchanged (no-op).
+        If the path does not exist, creates the list with [value].
+        Uses Python == for equality checks.
+
+        Args:
+            *keys: Path to the sequence within the document.
+            value: The value to ensure is in the list.
+            where: Optional dict of key/value pairs for matching dicts in
+                the list (AND semantics). If provided, checks whether any
+                list item matches all pairs; if so, returns self unchanged.
+
+        Raises:
+            NodeTypeError: If the value at path is not a list.
+            ValueError: If where is an empty dict.
+            PatchError: If keys is empty and the document is empty (root
+                sequence creation is not supported).
+        """
+        if where is not None and not where:
+            msg = "where must be a non-empty dict"
+            raise ValueError(msg)
+
+        route = _make_route(keys)
+        if not self._core_doc.query_exists(route):
+            return self.upsert(*keys, value=[value])
+
+        current = self[keys]
+        if not isinstance(current, list):
+            msg = f"Value at {keys} is not a list"
+            raise NodeTypeError(msg)
+
+        if where is None:
+            if value in current:
+                return self
+        else:
+            for item in current:
+                if isinstance(item, dict) and all(
+                    k in item and item[k] == v for k, v in where.items()
+                ):
+                    return self
+
+        return self.append(*keys, value=value)
+
     def sync(self, *keys: KeyPart, value: Any) -> Document:
         """Sync the value at path to match the desired value.
 

@@ -195,6 +195,32 @@ class TestEditorFindIndex:
             ed.find_index("name", where={"k": "v"})
 
 
+class TestEditorEnsureInList:
+    def test_scalar_missing_appends(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.ensure_in_list("items", value="c")
+        content = yaml_file.read_text(encoding="utf-8")
+        assert content == "name: foo\nage: 30\nitems:\n  - a\n  - b\n  - c\n"
+
+    def test_scalar_present_noop(self, yaml_file):
+        with Editor(yaml_file) as editor:
+            editor.ensure_in_list("items", value="a")
+        content = yaml_file.read_text(encoding="utf-8")
+        assert content == "name: foo\nage: 30\nitems:\n  - a\n  - b\n"
+
+    def test_where_matching(self, tmp_path):
+        p = tmp_path / "test.yml"
+        p.write_text("repos:\n  - name: foo\n    ver: 1\n", encoding="utf-8")
+        with Editor(p) as editor:
+            editor.ensure_in_list(
+                "repos",
+                where={"name": "foo"},
+                value={"name": "foo", "ver": 1},
+            )
+        content = p.read_text(encoding="utf-8")
+        assert content == "repos:\n  - name: foo\n    ver: 1\n"
+
+
 class TestEditorGet:
     def test_get_existing_key(self, yaml_file):
         with Editor(yaml_file) as editor:

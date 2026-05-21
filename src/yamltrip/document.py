@@ -460,6 +460,9 @@ class Document:
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs.
 
+        Comparison uses Python ``==``. YAML scalars are parsed to their
+        native types (e.g. ``port: 8080`` is int, not str).
+
         Args:
             *keys: Path to the list within the document.
             where: Dict of key/value pairs that must all match (AND semantics).

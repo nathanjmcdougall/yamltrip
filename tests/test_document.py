@@ -676,3 +676,10 @@ class TestEmptyDocumentErrors:
         doc = Document("")
         with pytest.raises(PatchError):
             doc.remove("x")
+
+    def test_root_upsert_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(
+            PatchError, match="Cannot replace root of an empty document"
+        ):
+            doc.upsert(value=42)

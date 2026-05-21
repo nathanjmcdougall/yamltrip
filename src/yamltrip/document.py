@@ -296,6 +296,11 @@ class Document:
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
         """Replace if exists, create (with intermediate mappings) if not."""
         if not keys:
+            if self._is_empty_document():
+                msg = (
+                    "Cannot replace root of an empty document; provide at least one key"
+                )
+                raise PatchError(msg)
             route = _make_route(())
             op = _core.Op.replace(value)
             patch = _core.Patch(route=route, operation=op)

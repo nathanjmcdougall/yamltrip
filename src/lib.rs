@@ -34,4 +34,9 @@ mod _core {
     fn apply_patches(source: &str, patches: Vec<PyPatch>) -> PyResult<String> {
         ops::apply_patches(source, patches)
     }
+
+    #[pyfunction]
+    fn serialize_value(value: &Bound<'_, PyAny>) -> PyResult<String> {
+        convert::serialize_value(value)
+    }
 }

@@ -659,3 +659,20 @@ class TestEmptyDocumentSync:
         doc = Document("")
         doc2 = doc.sync("config", value={"nested": True})
         assert doc2["config"] == {"nested": True}
+
+
+class TestEmptyDocumentErrors:
+    def test_replace_on_empty_raises_key_missing(self):
+        doc = Document("")
+        with pytest.raises(KeyMissingError):
+            doc.replace("x", value=1)
+
+    def test_append_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.append("items", value="a")
+
+    def test_remove_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.remove("x")

@@ -179,8 +179,8 @@ class Document:
     def __contains__(self, keys: object) -> bool:
         """Check whether a path exists in the document.
 
-        An empty tuple ``()`` checks that the document root exists (always True
-        for a successfully parsed document).
+        An empty tuple ``()`` checks that the document has a root data node.
+        Returns False for empty or comment-only documents.
         """
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)
@@ -241,10 +241,17 @@ class Document:
             msg = f"Key already exists: {full_path}"
             raise KeyExistsError(msg)
 
+        if self._is_empty_document():
+            return self._create_at((), full_path, value)
+
         route = _make_route(keys)
         op = _core.Op.add(key, value)
         patch = _core.Patch(route=route, operation=op)
         return self._apply_patches([patch])
+
+    def _is_empty_document(self) -> bool:
+        """True if the document has no root data node."""
+        return not self._core_doc.query_exists(_make_route(()))
 
     def _create_at(
         self,
@@ -254,6 +261,23 @@ class Document:
     ) -> Document:
         """Create a nested value under parent_keys using child_keys."""
         _check_no_int_keys_for_creation(child_keys)
+
+        # Bootstrap root mapping if document has no root data node
+        if not parent_keys and self._is_empty_document():
+            first_key = child_keys[0]
+            if not isinstance(first_key, str):
+                msg = f"Expected string key, got {type(first_key).__name__}"
+                raise TypeError(msg)
+            nested_value = value
+            for k in reversed(child_keys[1:]):
+                nested_value = {k: nested_value}
+            full_dict = {first_key: nested_value}
+            yaml_text = _core.serialize_value(full_dict)
+            prefix = self._source
+            if prefix and not prefix.endswith("\n"):
+                prefix += "\n"
+            return Document(prefix + yaml_text)
+
         first_key = child_keys[0]
         if not isinstance(first_key, str):
             msg = f"Expected string key, got {type(first_key).__name__}"
@@ -272,6 +296,11 @@ class Document:
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
         """Replace if exists, create (with intermediate mappings) if not."""
         if not keys:
+            if self._is_empty_document():
+                msg = (
+                    "Cannot replace root of an empty document; provide at least one key"
+                )
+                raise PatchError(msg)
             route = _make_route(())
             op = _core.Op.replace(value)
             patch = _core.Patch(route=route, operation=op)

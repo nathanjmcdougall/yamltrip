@@ -12,6 +12,7 @@ __all__ = [
     "Patch",
     "Route",
     "apply_patches",
+    "serialize_value",
 ]
 
 @final
@@ -121,3 +122,4 @@ class Patch:
     def operation(self) -> Op: ...
 
 def apply_patches(source: str, patches: list[Patch]) -> str: ...
+def serialize_value(value: Any) -> str: ...

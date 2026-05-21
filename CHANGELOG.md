@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+### Features
+
+- `append()`, `insert()`, `extend_list()`, and `sync()` now handle flow sequences (e.g. `[a, b, c]`), which previously raised `PatchError`. They fall back to replacing the sequence value, including recursive detection of flow sequences nested inside list elements.
+- Added `NodeTypeError(PatchError, TypeError)` to the error hierarchy. Sequence-mutating operations (`append`, `insert`, `extend_list`, `remove_from_list`) now raise `NodeTypeError` instead of generic errors when the target node is not a sequence.
+
 ## 0.4.0
 
 ### Features

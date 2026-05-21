@@ -616,6 +616,10 @@ class TestDocumentFindIndex:
         doc = Document("items:\n  - plain_string\n  - id: found\n")
         assert doc.find_index("items", where={"id": "found"}) == 1
 
+    def test_missing_key_does_not_match_none(self):
+        doc = Document("items:\n  - name: alpha\n  - id:\n")
+        assert doc.find_index("items", where={"id": None}) == 1
+
     def test_nested_path(self):
         doc = Document("ci:\n  steps:\n    - uses: checkout\n    - uses: setup\n")
         assert doc.find_index("ci", "steps", where={"uses": "setup"}) == 1

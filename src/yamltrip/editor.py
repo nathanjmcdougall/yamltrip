@@ -145,6 +145,10 @@ class Editor:
         """Sync the value at path to match the desired value."""
         self._document = self.document.sync(*keys, value=value)
 
+    def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
+        """Return the index of the first list item matching all key/value pairs."""
+        return self.document.find_index(*keys, where=where)
+
     def query(self, *keys: KeyPart) -> Feature:
         """Return the Feature at the given path."""
         return self.document.query(*keys)

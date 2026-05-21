@@ -162,6 +162,26 @@ class TestEditorGuards:
         assert "Editor(" in repr(editor)
 
 
+class TestEditorFindIndex:
+    def test_finds_match(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("repos:\n  - repo: alpha\n  - repo: beta\n", encoding="utf-8")
+        with Editor(p) as ed:
+            assert ed.find_index("repos", where={"repo": "beta"}) == 1
+
+    def test_returns_none_when_no_match(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("repos:\n  - repo: alpha\n", encoding="utf-8")
+        with Editor(p) as ed:
+            assert ed.find_index("repos", where={"repo": "missing"}) is None
+
+    def test_empty_where_raises_value_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("items:\n  - id: x\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(ValueError, match="where"):
+            ed.find_index("items", where={})
+
+
 class TestEditorGet:
     def test_get_existing_key(self, yaml_file):
         with Editor(yaml_file) as editor:

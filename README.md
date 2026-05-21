@@ -79,6 +79,8 @@ doc.append("items", value="c")
 doc.insert("items", index=1, value="between")  # positional insert
 doc.extend_list("items", values=["d", "e"])
 doc.remove_from_list("items", values=["a"])
+doc.ensure_in_list("items", value="c")  # no-op if already present
+doc.ensure_in_list("repos", where={"name": "x"}, value={"name": "x", "url": "..."})
 doc.sync("items", value=["a", "new", "b"])  # minimal diff-and-patch
 doc.find_index("repos", where={"id": "x"})  # find in list-of-dicts; returns int | None
 

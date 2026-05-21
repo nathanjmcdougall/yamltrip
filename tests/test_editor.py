@@ -1,6 +1,7 @@
 import pytest
 
 from yamltrip.editor import Editor
+from yamltrip.errors import NodeTypeError, QueryError
 
 
 @pytest.fixture
@@ -180,6 +181,18 @@ class TestEditorFindIndex:
         p.write_text("items:\n  - id: x\n", encoding="utf-8")
         with Editor(p) as ed, pytest.raises(ValueError, match="where"):
             ed.find_index("items", where={})
+
+    def test_missing_path_raises_query_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("name: foo\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(QueryError):
+            ed.find_index("missing", where={"k": "v"})
+
+    def test_non_list_raises_node_type_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("name: foo\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(NodeTypeError):
+            ed.find_index("name", where={"k": "v"})
 
 
 class TestEditorGet:

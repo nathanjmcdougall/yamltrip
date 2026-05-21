@@ -65,7 +65,7 @@ def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
 ```python
 class Editor:
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
-        return self._doc.find_index(*keys, where=where)
+        return self.document.find_index(*keys, where=where)
 ```
 
 ## Change Locations
@@ -100,6 +100,6 @@ New tests:
 
 **Out of scope:**
 - `match=` callable predicate (future addition, additive)
-- `find_value()` or `find()` returning the item itself (use `doc[*keys, idx]`)
+- `find_value()` or `find()` returning the item itself (use `doc["repos", idx]`)
 - `find_all_indices()` returning multiple matches
 - Rust-side implementation (pure Python is sufficient; values are already parsed)

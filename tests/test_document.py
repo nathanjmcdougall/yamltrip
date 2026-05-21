@@ -745,3 +745,36 @@ class TestEmptyDocumentErrors:
             PatchError, match="Cannot replace root of an empty document"
         ):
             doc.upsert(value=42)
+
+
+class TestEnsureInList:
+    def test_scalar_already_present_noop(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list("items", value="a")
+        assert result.source == doc.source
+
+    def test_scalar_missing_appends(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list("items", value="c")
+        assert result["items"] == ["a", "b", "c"]
+
+    def test_integer_value(self):
+        doc = Document("ports:\n  - 8080\n  - 9090\n")
+        result = doc.ensure_in_list("ports", value=8080)
+        assert result.source == doc.source
+
+    def test_path_missing_creates_list(self):
+        doc = Document("name: foo\n")
+        result = doc.ensure_in_list("items", value="first")
+        assert result["items"] == ["first"]
+
+    def test_path_not_a_list_raises(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.ensure_in_list("name", value="bar")
+
+    def test_idempotent(self):
+        doc = Document("items:\n  - a\n")
+        result1 = doc.ensure_in_list("items", value="b")
+        result2 = result1.ensure_in_list("items", value="b")
+        assert result1.source == result2.source

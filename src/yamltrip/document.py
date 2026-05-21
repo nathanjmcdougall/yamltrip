@@ -241,6 +241,9 @@ class Document:
             msg = f"Key already exists: {full_path}"
             raise KeyExistsError(msg)
 
+        if self._is_empty_document():
+            return self._create_at((), full_path, value)
+
         route = _make_route(keys)
         op = _core.Op.add(key, value)
         patch = _core.Patch(route=route, operation=op)

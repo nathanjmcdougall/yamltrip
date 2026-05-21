@@ -629,3 +629,21 @@ class TestEmptyDocumentUpsert:
         doc = Document("")
         with pytest.raises(PatchError):
             doc.upsert(0, value="x")
+
+
+class TestEmptyDocumentAdd:
+    def test_add_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.add(key="name", value="foo")
+        assert doc2["name"] == "foo"
+
+    def test_add_nested_parent_on_empty(self):
+        doc = Document("")
+        doc2 = doc.add("nested", key="x", value=1)
+        assert doc2["nested", "x"] == 1
+
+    def test_add_comment_only_preserves_comments(self):
+        doc = Document("# managed\n")
+        doc2 = doc.add(key="tool", value="usethis")
+        assert doc2.source.startswith("# managed\n")
+        assert doc2["tool"] == "usethis"

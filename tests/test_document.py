@@ -593,6 +593,68 @@ class TestNodeTypeError:
             doc.extend_list("name", values=["a", "b"])
 
 
+class TestDocumentFindIndex:
+    def test_finds_first_match(self):
+        doc = Document("repos:\n  - repo: alpha\n  - repo: beta\n")
+        assert doc.find_index("repos", where={"repo": "beta"}) == 1
+
+    def test_returns_none_when_no_match(self):
+        doc = Document("repos:\n  - repo: alpha\n  - repo: beta\n")
+        assert doc.find_index("repos", where={"repo": "missing"}) is None
+
+    def test_multi_key_where_all_must_match(self):
+        doc = Document(
+            "items:\n  - name: a\n    version: '1'\n  - name: a\n    version: '2'\n"
+        )
+        assert doc.find_index("items", where={"name": "a", "version": "2"}) == 1
+
+    def test_first_match_wins(self):
+        doc = Document("items:\n  - id: x\n  - id: x\n")
+        assert doc.find_index("items", where={"id": "x"}) == 0
+
+    def test_non_dict_items_skipped(self):
+        doc = Document("items:\n  - plain_string\n  - id: found\n")
+        assert doc.find_index("items", where={"id": "found"}) == 1
+
+    def test_missing_key_does_not_match_none(self):
+        doc = Document("items:\n  - name: alpha\n  - id:\n")
+        assert doc.find_index("items", where={"id": None}) == 1
+
+    def test_nested_path(self):
+        doc = Document("ci:\n  steps:\n    - uses: checkout\n    - uses: setup\n")
+        assert doc.find_index("ci", "steps", where={"uses": "setup"}) == 1
+
+    def test_path_not_found_raises_query_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(QueryError):
+            doc.find_index("missing", where={"k": "v"})
+
+    def test_value_not_a_list_raises_node_type_error(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError):
+            doc.find_index("name", where={"k": "v"})
+
+    def test_value_is_dict_raises_node_type_error(self):
+        doc = Document("data:\n  key: val\n")
+        with pytest.raises(NodeTypeError):
+            doc.find_index("data", where={"key": "val"})
+
+    def test_empty_where_raises_value_error(self):
+        doc = Document("items:\n  - id: x\n")
+        with pytest.raises(ValueError, match="where"):
+            doc.find_index("items", where={})
+
+    def test_integer_key_in_path(self):
+        doc = Document(
+            "jobs:\n  - steps:\n      - uses: checkout\n      - uses: build\n"
+        )
+        assert doc.find_index("jobs", 0, "steps", where={"uses": "build"}) == 1
+
+    def test_root_list(self):
+        doc = Document("- name: alpha\n- name: beta\n")
+        assert doc.find_index(where={"name": "beta"}) == 1
+
+
 class TestEmptyDocumentUpsert:
     def test_upsert_single_key_on_empty(self):
         doc = Document("")

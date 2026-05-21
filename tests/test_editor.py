@@ -1,6 +1,7 @@
 import pytest
 
 from yamltrip.editor import Editor
+from yamltrip.errors import NodeTypeError, QueryError
 
 
 @pytest.fixture
@@ -160,6 +161,38 @@ class TestEditorGuards:
     def test_repr(self, yaml_file):
         editor = Editor(yaml_file)
         assert "Editor(" in repr(editor)
+
+
+class TestEditorFindIndex:
+    def test_finds_match(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("repos:\n  - repo: alpha\n  - repo: beta\n", encoding="utf-8")
+        with Editor(p) as ed:
+            assert ed.find_index("repos", where={"repo": "beta"}) == 1
+
+    def test_returns_none_when_no_match(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("repos:\n  - repo: alpha\n", encoding="utf-8")
+        with Editor(p) as ed:
+            assert ed.find_index("repos", where={"repo": "missing"}) is None
+
+    def test_empty_where_raises_value_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("items:\n  - id: x\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(ValueError, match="where"):
+            ed.find_index("items", where={})
+
+    def test_missing_path_raises_query_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("name: foo\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(QueryError):
+            ed.find_index("missing", where={"k": "v"})
+
+    def test_non_list_raises_node_type_error(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("name: foo\n", encoding="utf-8")
+        with Editor(p) as ed, pytest.raises(NodeTypeError):
+            ed.find_index("name", where={"k": "v"})
 
 
 class TestEditorGet:

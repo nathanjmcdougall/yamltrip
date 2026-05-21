@@ -485,3 +485,38 @@ class Document:
             route = _make_route(normalized)
             op = _core.Op.replace(value)
             return self._apply_patches([_core.Patch(route=route, operation=op)])
+
+    def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
+        """Return the index of the first list item matching all key/value pairs.
+
+        Comparison uses Python ``==``. YAML scalars are parsed to their
+        native types (e.g. ``port: 8080`` is int, not str).
+
+        Args:
+            *keys: Path to the list within the document.
+            where: Dict of key/value pairs that must all match (AND semantics).
+
+        Returns:
+            The integer index of the first matching item, or None if no match.
+
+        Raises:
+            QueryError: If the path doesn't exist.
+            NodeTypeError: If the value at path is not a list.
+            ValueError: If where is empty.
+        """
+        if not where:
+            msg = "where must be a non-empty dict"
+            raise ValueError(msg)
+
+        value = self[keys]
+        if not isinstance(value, list):
+            msg = f"Value at {keys} is not a list"
+            raise NodeTypeError(msg)
+
+        for i, item in enumerate(value):
+            if not isinstance(item, dict):
+                continue
+            entry = cast("dict[str, Any]", item)
+            if all(k in entry and entry[k] == v for k, v in where.items()):
+                return i
+        return None

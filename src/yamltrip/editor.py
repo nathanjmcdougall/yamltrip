@@ -141,6 +141,12 @@ class Editor:
         """Remove all occurrences of given values from the sequence at path."""
         self._document = self.document.remove_from_list(*keys, values=values)
 
+    def ensure_in_list(
+        self, *keys: KeyPart, value: Any, where: dict[str, Any] | None = None
+    ) -> None:
+        """Ensure a value is present in the sequence at path."""
+        self._document = self.document.ensure_in_list(*keys, value=value, where=where)
+
     def sync(self, *keys: KeyPart, value: Any) -> None:
         """Sync the value at path to match the desired value."""
         self._document = self.document.sync(*keys, value=value)

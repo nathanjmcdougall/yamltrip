@@ -591,3 +591,41 @@ class TestNodeTypeError:
         doc = Document("name: foo\n")
         with pytest.raises(NodeTypeError):
             doc.extend_list("name", values=["a", "b"])
+
+
+class TestEmptyDocumentUpsert:
+    def test_upsert_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_upsert_nested_keys_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("a", "b", value="hello")
+        assert doc2["a", "b"] == "hello"
+
+    def test_upsert_complex_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("items", value=["a", "b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_upsert_dict_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("config", value={"debug": True, "port": 8080})
+        assert doc2["config"] == {"debug": True, "port": 8080}
+
+    def test_upsert_whitespace_only_doc(self):
+        doc = Document("  \n")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_upsert_comment_only_preserves_comments(self):
+        doc = Document("# header\n")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2.source.startswith("# header\n")
+        assert doc2["x"] == 1
+
+    def test_upsert_int_key_on_empty_raises(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.upsert(0, value="x")

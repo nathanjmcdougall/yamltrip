@@ -645,3 +645,7 @@ class TestDocumentFindIndex:
             "jobs:\n  - steps:\n      - uses: checkout\n      - uses: build\n"
         )
         assert doc.find_index("jobs", 0, "steps", where={"uses": "build"}) == 1
+
+    def test_root_list(self):
+        doc = Document("- name: alpha\n- name: beta\n")
+        assert doc.find_index(where={"name": "beta"}) == 1

@@ -179,8 +179,8 @@ class Document:
     def __contains__(self, keys: object) -> bool:
         """Check whether a path exists in the document.
 
-        An empty tuple ``()`` checks that the document root exists (always True
-        for a successfully parsed document).
+        An empty tuple ``()`` checks that the document has a root data node.
+        Returns False for empty or comment-only documents.
         """
         normalized = _normalize_keys(keys)
         route = _make_route(normalized)

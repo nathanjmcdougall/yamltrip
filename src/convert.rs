@@ -110,7 +110,7 @@ pub fn yaml_value_to_py(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
 pub fn serialize_value(value: &Bound<'_, PyAny>) -> PyResult<String> {
     let val = py_to_yaml_value(value)?;
     serde_yaml::to_string(&val).map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to serialize: {e}"))
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to serialize YAML: {e}"))
     })
 }
 

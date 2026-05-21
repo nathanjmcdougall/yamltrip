@@ -12,6 +12,7 @@ __all__ = [
     "Patch",
     "Route",
     "apply_patches",
+    "serialize_value",
 ]
 
 @final

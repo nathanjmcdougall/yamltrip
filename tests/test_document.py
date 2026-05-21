@@ -822,3 +822,13 @@ class TestEnsureInList:
         )
         # Neither item matches both (foo has ver=1, bar has ver=2)
         assert len(result["items"]) == 3
+
+    def test_flow_sequence_appends(self):
+        doc = Document("items: [a, b]\n")
+        result = doc.ensure_in_list("items", value="c")
+        assert result["items"] == ["a", "b", "c"]
+
+    def test_flow_sequence_noop(self):
+        doc = Document("items: [a, b]\n")
+        result = doc.ensure_in_list("items", value="a")
+        assert result.source == doc.source

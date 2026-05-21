@@ -773,6 +773,11 @@ class TestEnsureInList:
         with pytest.raises(NodeTypeError):
             doc.ensure_in_list("name", value="bar")
 
+    def test_path_is_mapping_raises(self):
+        doc = Document("config:\n  host: localhost\n  port: 8080\n")
+        with pytest.raises(NodeTypeError):
+            doc.ensure_in_list("config", value="x")
+
     def test_idempotent(self):
         doc = Document("items:\n  - a\n")
         result1 = doc.ensure_in_list("items", value="b")

@@ -778,3 +778,47 @@ class TestEnsureInList:
         result1 = doc.ensure_in_list("items", value="b")
         result2 = result1.ensure_in_list("items", value="b")
         assert result1.source == result2.source
+
+    def test_where_match_found_noop(self):
+        doc = Document(
+            "repos:\n  - repo: https://a\n    rev: v1\n  - repo: https://b\n    rev: v2\n"
+        )
+        result = doc.ensure_in_list(
+            "repos",
+            where={"repo": "https://a"},
+            value={"repo": "https://a", "rev": "v1"},
+        )
+        assert result.source == doc.source
+
+    def test_where_no_match_appends(self):
+        doc = Document("repos:\n  - repo: https://a\n    rev: v1\n")
+        result = doc.ensure_in_list(
+            "repos",
+            where={"repo": "https://b"},
+            value={"repo": "https://b", "rev": "v2"},
+        )
+        assert result["repos", 1] == {"repo": "https://b", "rev": "v2"}
+
+    def test_where_empty_raises(self):
+        doc = Document("items:\n  - a\n")
+        with pytest.raises(ValueError, match="where must be a non-empty dict"):
+            doc.ensure_in_list("items", where={}, value="x")
+
+    def test_where_items_not_dicts_appends(self):
+        doc = Document("items:\n  - a\n  - b\n")
+        result = doc.ensure_in_list(
+            "items",
+            where={"name": "foo"},
+            value={"name": "foo"},
+        )
+        assert result["items"] == ["a", "b", {"name": "foo"}]
+
+    def test_where_multiple_keys_all_must_match(self):
+        doc = Document("items:\n  - name: foo\n    ver: 1\n  - name: bar\n    ver: 2\n")
+        result = doc.ensure_in_list(
+            "items",
+            where={"name": "foo", "ver": 2},
+            value={"name": "foo", "ver": 2},
+        )
+        # Neither item matches both (foo has ver=1, bar has ver=2)
+        assert len(result["items"]) == 3

@@ -647,3 +647,15 @@ class TestEmptyDocumentAdd:
         doc2 = doc.add(key="tool", value="usethis")
         assert doc2.source.startswith("# managed\n")
         assert doc2["tool"] == "usethis"
+
+
+class TestEmptyDocumentSync:
+    def test_sync_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.sync("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_sync_dict_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.sync("config", value={"nested": True})
+        assert doc2["config"] == {"nested": True}

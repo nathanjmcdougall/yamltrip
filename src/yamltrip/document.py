@@ -457,6 +457,8 @@ class Document:
         Raises:
             NodeTypeError: If the value at path is not a list.
             ValueError: If where is an empty dict.
+            PatchError: If keys is empty and the document is empty (root
+                sequence creation is not supported).
         """
         if where is not None and not where:
             msg = "where must be a non-empty dict"

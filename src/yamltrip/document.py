@@ -517,6 +517,6 @@ class Document:
             if not isinstance(item, dict):
                 continue
             entry = cast("dict[str, Any]", item)
-            if all(entry.get(k) == v for k, v in where.items()):
+            if all(k in entry and entry[k] == v for k, v in where.items()):
                 return i
         return None

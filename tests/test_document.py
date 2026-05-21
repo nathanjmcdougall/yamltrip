@@ -591,3 +591,95 @@ class TestNodeTypeError:
         doc = Document("name: foo\n")
         with pytest.raises(NodeTypeError):
             doc.extend_list("name", values=["a", "b"])
+
+
+class TestEmptyDocumentUpsert:
+    def test_upsert_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_upsert_nested_keys_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("a", "b", value="hello")
+        assert doc2["a", "b"] == "hello"
+
+    def test_upsert_complex_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("items", value=["a", "b", "c"])
+        assert doc2["items"] == ["a", "b", "c"]
+
+    def test_upsert_dict_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.upsert("config", value={"debug": True, "port": 8080})
+        assert doc2["config"] == {"debug": True, "port": 8080}
+
+    def test_upsert_whitespace_only_doc(self):
+        doc = Document("  \n")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_upsert_comment_only_preserves_comments(self):
+        doc = Document("# header\n")
+        doc2 = doc.upsert("x", value=1)
+        assert doc2.source.startswith("# header\n")
+        assert doc2["x"] == 1
+
+    def test_upsert_int_key_on_empty_raises(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.upsert(0, value="x")
+
+
+class TestEmptyDocumentAdd:
+    def test_add_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.add(key="name", value="foo")
+        assert doc2["name"] == "foo"
+
+    def test_add_nested_parent_on_empty(self):
+        doc = Document("")
+        doc2 = doc.add("nested", key="x", value=1)
+        assert doc2["nested", "x"] == 1
+
+    def test_add_comment_only_preserves_comments(self):
+        doc = Document("# managed\n")
+        doc2 = doc.add(key="tool", value="usethis")
+        assert doc2.source.startswith("# managed\n")
+        assert doc2["tool"] == "usethis"
+
+
+class TestEmptyDocumentSync:
+    def test_sync_single_key_on_empty(self):
+        doc = Document("")
+        doc2 = doc.sync("x", value=1)
+        assert doc2["x"] == 1
+
+    def test_sync_dict_value_on_empty(self):
+        doc = Document("")
+        doc2 = doc.sync("config", value={"nested": True})
+        assert doc2["config"] == {"nested": True}
+
+
+class TestEmptyDocumentErrors:
+    def test_replace_on_empty_raises_key_missing(self):
+        doc = Document("")
+        with pytest.raises(KeyMissingError):
+            doc.replace("x", value=1)
+
+    def test_append_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.append("items", value="a")
+
+    def test_remove_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(PatchError):
+            doc.remove("x")
+
+    def test_root_upsert_on_empty_raises_patch_error(self):
+        doc = Document("")
+        with pytest.raises(
+            PatchError, match="Cannot replace root of an empty document"
+        ):
+            doc.upsert(value=42)

@@ -200,7 +200,7 @@ class TestEditorEnsureInList:
         with Editor(yaml_file) as editor:
             editor.ensure_in_list("items", value="c")
         content = yaml_file.read_text(encoding="utf-8")
-        assert "- c" in content
+        assert content == "name: foo\nage: 30\nitems:\n  - a\n  - b\n  - c\n"
 
     def test_scalar_present_noop(self, yaml_file):
         with Editor(yaml_file) as editor:

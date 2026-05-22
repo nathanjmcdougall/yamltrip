@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from yamltrip import _core
+from yamltrip._display import format_path
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
@@ -418,7 +419,7 @@ class Document:
         """Remove all occurrences of given values from the sequence at path."""
         current_list = self[keys]
         if not isinstance(current_list, list):
-            msg = f"Value at {keys} is not a list"
+            msg = f"Value at {format_path(keys)} is not a list"
             raise NodeTypeError(msg)
 
         values_list = list(values)
@@ -470,7 +471,7 @@ class Document:
 
         current = self[keys]
         if not isinstance(current, list):
-            msg = f"Value at {keys} is not a list"
+            msg = f"Value at {format_path(keys)} is not a list"
             raise NodeTypeError(msg)
 
         if where is None:
@@ -557,7 +558,7 @@ class Document:
 
         value = self[keys]
         if not isinstance(value, list):
-            msg = f"Value at {keys} is not a list"
+            msg = f"Value at {format_path(keys)} is not a list"
             raise NodeTypeError(msg)
 
         for i, item in enumerate(value):

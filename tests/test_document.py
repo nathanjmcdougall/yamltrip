@@ -592,6 +592,26 @@ class TestNodeTypeError:
         with pytest.raises(NodeTypeError):
             doc.extend_list("name", values=["a", "b"])
 
+    def test_remove_from_list_error_message_uses_path_format(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError, match="Value at name is not a list"):
+            doc.remove_from_list("name", values=["foo"])
+
+    def test_find_index_error_message_uses_path_format(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError, match="Value at name is not a list"):
+            doc.find_index("name", where={"k": "v"})
+
+    def test_ensure_in_list_error_message_uses_path_format(self):
+        doc = Document("name: foo\n")
+        with pytest.raises(NodeTypeError, match="Value at name is not a list"):
+            doc.ensure_in_list("name", value="bar")
+
+    def test_error_message_multi_key_path(self):
+        doc = Document("a:\n  b: scalar\n")
+        with pytest.raises(NodeTypeError, match=r"Value at a > b is not a list"):
+            doc.remove_from_list("a", "b", values=["x"])
+
 
 class TestDocumentFindIndex:
     def test_finds_first_match(self):

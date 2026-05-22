@@ -32,6 +32,10 @@ def _compute_patches(
     new_is_list = isinstance(new_value, list)
 
     if old_is_list and new_is_list:
+        if not remove_extra:
+            # merge semantics: lists replace entirely (no element-wise diff)
+            route = _core.Route(list(path))
+            return [_core.Patch(route=route, operation=_core.Op.replace(new_value))]
         return _diff_lists(old_value, new_value, path)
 
     # Type mismatch or scalar change — replace

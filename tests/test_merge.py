@@ -40,6 +40,20 @@ class TestMergeListReplacement:
         assert doc2["cfg", "name"] == "foo"
 
 
+class TestMergeFlowSequence:
+    def test_flow_sequence_replaced(self):
+        doc = Document("cfg:\n  tags: [alpha, beta]\n  name: foo\n")
+        doc2 = doc.merge("cfg", value={"tags": ["gamma"], "extra": 1})
+        assert doc2["cfg", "tags"] == ["gamma"]
+        assert doc2["cfg", "name"] == "foo"
+        assert doc2["cfg", "extra"] == 1
+
+    def test_flow_sequence_at_path(self):
+        doc = Document("items: [a, b, c]\n")
+        doc2 = doc.merge("items", value=["x", "y"])
+        assert doc2["items"] == ["x", "y"]
+
+
 class TestMergeTypePromotion:
     def test_scalar_to_mapping(self):
         doc = Document("settings: defaults\n")

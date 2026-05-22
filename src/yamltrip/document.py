@@ -555,6 +555,7 @@ class Document:
         normalized = _normalize_keys(keys) if keys else ()
 
         # If path doesn't exist, delegate to upsert.
+        # Root (empty keys) always exists, so skip the check.
         if normalized:
             route = _make_route(normalized)
             if not self._core_doc.query_exists(route):

@@ -11,9 +11,18 @@ def format_path(keys: tuple[str | int, ...]) -> str:
         'repos'
         >>> format_path(("repos", 0, "steps"))
         'repos > 0 > steps'
+        >>> format_path(("a", "b>c"))
+        "a > 'b>c'"
         >>> format_path(())
         '<root>'
     """
     if not keys:
         return "<root>"
-    return " > ".join(str(k) for k in keys)
+
+    def _fmt(k: str | int) -> str:
+        s = str(k)
+        if ">" in s:
+            return f"'{s}'"
+        return s
+
+    return " > ".join(_fmt(k) for k in keys)

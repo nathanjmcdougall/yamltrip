@@ -13,3 +13,9 @@ class TestFormatPath:
 
     def test_empty_tuple_returns_root(self):
         assert format_path(()) == "<root>"
+
+    def test_key_containing_gt_is_quoted(self):
+        assert format_path(("a", "b>c")) == "a > 'b>c'"
+
+    def test_bare_gt_key_is_quoted(self):
+        assert format_path((">",)) == "'>'"

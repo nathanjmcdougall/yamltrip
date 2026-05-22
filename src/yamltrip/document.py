@@ -288,7 +288,16 @@ class Document:
             nested_value = {k: nested_value}
         route = _make_route(parent_keys)
         if isinstance(nested_value, dict):
-            op = _core.Op.merge_into(first_key, nested_value)
+            # Op.merge_into flattens nested dicts to the wrong level; work
+            # around by adding a placeholder scalar then replacing with the
+            # real value.
+            op = _core.Op.add(first_key, None)
+            patch = _core.Patch(route=route, operation=op)
+            doc = self._apply_patches([patch])
+            replace_route = _make_route((*parent_keys, first_key))
+            replace_op = _core.Op.replace(nested_value)
+            replace_patch = _core.Patch(route=replace_route, operation=replace_op)
+            return doc._apply_patches([replace_patch])
         else:
             op = _core.Op.add(first_key, nested_value)
         patch = _core.Patch(route=route, operation=op)

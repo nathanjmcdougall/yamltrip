@@ -151,6 +151,10 @@ class Editor:
         """Sync the value at path to match the desired value."""
         self._document = self.document.sync(*keys, value=value)
 
+    def merge(self, *keys: KeyPart, value: Any) -> None:
+        """Merge a value into the mapping at path without removing extra keys."""
+        self._document = self.document.merge(*keys, value=value)
+
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs."""
         return self.document.find_index(*keys, where=where)

@@ -1,3 +1,4 @@
+from yamltrip import edit
 from yamltrip.document import Document
 
 
@@ -74,3 +75,15 @@ class TestMergeNoop:
         doc = Document("a: 1\nb: 2\nc: 3\n")
         doc2 = doc.merge(value={"a": 1, "b": 2})
         assert doc2 is doc
+
+
+class TestEditorMerge:
+    def test_editor_merge(self, tmp_path):
+        p = tmp_path / "test.yaml"
+        p.write_text("a: 1\nb: 2\n", encoding="utf-8")
+        with edit(p) as ed:
+            ed.merge(value={"a": 99, "c": 3})
+        result = p.read_text(encoding="utf-8")
+        assert "a: 99" in result
+        assert "b: 2" in result
+        assert "c: 3" in result

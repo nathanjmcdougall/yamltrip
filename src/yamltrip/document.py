@@ -543,6 +543,50 @@ class Document:
             op = _core.Op.replace(value)
             return self._apply_patches([_core.Patch(route=route, operation=op)])
 
+    def merge(self, *keys: KeyPart, value: Any) -> Document:
+        """Merge a value into the mapping at path without removing extra keys.
+
+        Recursively updates matching keys and adds new keys, but never
+        removes existing keys not present in *value*. Lists are replaced
+        entirely (not merged element-wise).
+        """
+        from yamltrip.sync import _compute_patches  # noqa: PLC0415
+
+        normalized = _normalize_keys(keys) if keys else ()
+
+        # If path doesn't exist, delegate to upsert.
+        if normalized:
+            route = _make_route(normalized)
+            if not self._core_doc.query_exists(route):
+                return self.upsert(*normalized, value=value)
+
+        # Get current value and diff
+        try:
+            old_value = self._core_doc.parse_value(_make_route(normalized))
+        except (ValueError, KeyError):
+            return self.upsert(*normalized, value=value)
+
+        # Pre-convert any flow sequences that will be modified.
+        doc: Document = self
+        flow_patches = _flow_seq_replacements(
+            self._core_doc, old_value, value, normalized
+        )
+        if flow_patches:
+            doc = doc._apply_patches(flow_patches)
+            old_value = doc._core_doc.parse_value(_make_route(normalized))
+
+        patches = _compute_patches(old_value, value, normalized, remove_extra=False)
+        if not patches:
+            return doc
+        try:
+            return doc._apply_patches(patches)
+        except PatchError as e:
+            if "expected BlockSequence" not in str(e):
+                raise
+            route = _make_route(normalized)
+            op = _core.Op.replace(value)
+            return self._apply_patches([_core.Patch(route=route, operation=op)])
+
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs.
 

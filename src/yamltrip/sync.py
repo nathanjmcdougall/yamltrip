@@ -15,6 +15,8 @@ def _compute_patches(
     old_value: Any,
     new_value: Any,
     path: tuple[KeyPart, ...],
+    *,
+    remove_extra: bool = True,
 ) -> list[_core.Patch]:
     """Compute minimal patches to transform old_value into new_value at path."""
     if old_value == new_value:
@@ -24,7 +26,7 @@ def _compute_patches(
     new_is_dict = isinstance(new_value, dict)
 
     if old_is_dict and new_is_dict:
-        return _diff_mappings(old_value, new_value, path)
+        return _diff_mappings(old_value, new_value, path, remove_extra=remove_extra)
 
     old_is_list = isinstance(old_value, list)
     new_is_list = isinstance(new_value, list)
@@ -42,6 +44,8 @@ def _diff_mappings(
     old: dict[str, Any],
     new: dict[str, Any],
     path: tuple[KeyPart, ...],
+    *,
+    remove_extra: bool = True,
 ) -> list[_core.Patch]:
     """Diff two mappings and return patches."""
     patches: list[_core.Patch] = []
@@ -49,7 +53,9 @@ def _diff_mappings(
     # Keys in new that exist in old — recurse
     for key in new:
         if key in old:
-            child_patches = _compute_patches(old[key], new[key], (*path, key))
+            child_patches = _compute_patches(
+                old[key], new[key], (*path, key), remove_extra=remove_extra
+            )
             patches.extend(child_patches)
         else:
             # New key — add
@@ -58,11 +64,12 @@ def _diff_mappings(
             patches.append(_core.Patch(route=route, operation=op))
 
     # Keys in old not in new — remove
-    for key in old:
-        if key not in new:
-            route = _core.Route([*path, key])
-            op = _core.Op.remove()
-            patches.append(_core.Patch(route=route, operation=op))
+    if remove_extra:
+        for key in old:
+            if key not in new:
+                route = _core.Route([*path, key])
+                op = _core.Op.remove()
+                patches.append(_core.Patch(route=route, operation=op))
 
     return patches
 

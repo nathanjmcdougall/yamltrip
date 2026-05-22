@@ -1,0 +1,19 @@
+"""Display helpers for human-readable formatting."""
+
+from __future__ import annotations
+
+
+def format_path(keys: tuple[str | int, ...]) -> str:
+    """Format a key tuple as a human-readable path string.
+
+    Examples:
+        >>> format_path(("repos",))
+        'repos'
+        >>> format_path(("repos", 0, "steps"))
+        'repos > 0 > steps'
+        >>> format_path(())
+        '<root>'
+    """
+    if not keys:
+        return "<root>"
+    return " > ".join(str(k) for k in keys)

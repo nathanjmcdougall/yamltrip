@@ -15,6 +15,7 @@ containers =
 exhaustive = True
 exhaustive_ignores =
     _core
+    _display
     _types
 ignore_imports =
     yamltrip.document -> yamltrip

@@ -120,8 +120,8 @@ All return a new `Document`.
    the value). `MergeInto` uses uniform-indent serialization that only handles
    one nesting level; the `Replace` path routes through complex-replace which
    preserves relative indentation at arbitrary depth.
-3. **No path exists:** uses yamlpatch `Add` with a nested value to create the
-   entire path in a single operation.
+3. **No path exists:** routes through the same `_create_at` strategy as (2),
+   using `MergeInto` for flat mappings or `Add` + `Replace` for nested values.
 
 This is implemented in the Python layer using existing yamlpatch operations.
 

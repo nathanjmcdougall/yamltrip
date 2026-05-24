@@ -286,7 +286,19 @@ class Document:
         for k in reversed(child_keys[1:]):
             nested_value = {k: nested_value}
         route = _make_route(parent_keys)
-        if isinstance(nested_value, dict):
+        if isinstance(nested_value, dict) and any(
+            isinstance(v, (dict, list, tuple)) for v in nested_value.values()
+        ):
+            # Op.merge_into is scoped to flat mappings (uniform indent); for
+            # nested values, add a placeholder then replace via complex-replace
+            # which preserves relative indentation.
+            add_op = _core.Op.add(first_key, None)
+            add_patch = _core.Patch(route=route, operation=add_op)
+            replace_route = _make_route((*parent_keys, first_key))
+            replace_op = _core.Op.replace(nested_value)
+            replace_patch = _core.Patch(route=replace_route, operation=replace_op)
+            return self._apply_patches([add_patch, replace_patch])
+        elif isinstance(nested_value, dict):
             op = _core.Op.merge_into(first_key, nested_value)
         else:
             op = _core.Op.add(first_key, nested_value)

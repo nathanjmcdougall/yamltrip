@@ -71,6 +71,13 @@ impl PyOp {
     }
 
     /// Merge key-value pairs into an existing mapping.
+    ///
+    /// The `updates` map must contain flat (scalar) values only. Non-scalar
+    /// values (for example, nested mappings or sequences) will produce
+    /// incorrect indentation due to yamlpatch's uniform-indent serialization
+    /// in `handle_block_mapping_addition`.
+    /// For nested values, use `Op.add` + `Op.replace` to route through
+    /// the complex-replace path which preserves relative indentation.
     #[staticmethod]
     fn merge_into(key: &str, updates: &Bound<'_, PyAny>) -> PyResult<Self> {
         let dict = updates.cast::<pyo3::types::PyDict>().map_err(|_| {

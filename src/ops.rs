@@ -71,6 +71,13 @@ impl PyOp {
     }
 
     /// Merge key-value pairs into an existing mapping.
+    ///
+    /// The `updates` map must contain flat (scalar) values only. Non-scalar
+    /// values (for example, nested mappings or sequences) will produce
+    /// incorrect indentation due to yamlpatch's uniform-indent serialization
+    /// in `handle_block_mapping_addition`.
+    /// For nested values, use `Op.add` + `Op.replace` to route through
+    /// the complex-replace path which preserves relative indentation.
     #[staticmethod]
     fn merge_into(key: &str, updates: &Bound<'_, PyAny>) -> PyResult<Self> {
         let dict = updates.cast::<pyo3::types::PyDict>().map_err(|_| {
@@ -86,6 +93,20 @@ impl PyOp {
         for (k, v) in dict.iter() {
             let key_str: String = k.extract()?;
             let val = py_to_yaml_value(&v)?;
+            // `matches!` with wildcard `_` patterns does not move `val`: the
+            // expanded `match` only inspects the enum discriminant without
+            // binding or destructuring inner data, so `val` remains owned and
+            // usable in `map.insert` below.
+            if matches!(
+                val,
+                serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)
+            ) {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "merge_into requires scalar values, but key '{}' has a non-scalar value; \
+                     use Op.add + Op.replace for nested values",
+                    key_str
+                )));
+            }
             map.insert(key_str, val);
         }
         Ok(Self {

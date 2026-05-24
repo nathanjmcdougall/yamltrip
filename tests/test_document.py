@@ -409,6 +409,22 @@ class TestDocumentUpsertComplex:
         doc2 = doc.upsert("items", value=["a", "b"])
         assert doc2["items"] == ["a", "b"]
 
+    def test_upsert_missing_nested_path_with_dict(self):
+        """Nested dict via intermediate keys must not flatten."""
+        doc = Document("a: 1\n")
+        doc2 = doc.upsert("parent", "child", value={"x": 1, "y": 2})
+        assert doc2["parent", "child", "x"] == 1
+        assert doc2["parent", "child", "y"] == 2
+        assert doc2["parent", "child"] == {"x": 1, "y": 2}
+        assert doc2["a"] == 1
+
+    def test_upsert_missing_nested_path_with_list(self):
+        """Nested list via intermediate keys must not flatten."""
+        doc = Document("a: 1\n")
+        doc2 = doc.upsert("parent", "items", value=["a", "b"])
+        assert doc2["parent", "items"] == ["a", "b"]
+        assert doc2["a"] == 1
+
 
 class TestDocumentRemove:
     def test_remove_key(self):

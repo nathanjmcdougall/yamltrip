@@ -25,6 +25,7 @@ dev = [
   "codespell>=2.4.2",
   "deptry>=0.25.1",
   "import-linter>=2.11",
+  "maturin>=1.13.3",
   "prek>=0.3.13",
   "pyproject-fmt>=2.21.2",
   "pytest>=9.0.3",

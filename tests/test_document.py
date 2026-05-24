@@ -416,6 +416,7 @@ class TestDocumentUpsertComplex:
         assert doc2["parent", "child", "x"] == 1
         assert doc2["parent", "child", "y"] == 2
         assert doc2["parent", "child"] == {"x": 1, "y": 2}
+        assert doc2["a"] == 1
 
     def test_upsert_missing_nested_path_with_list(self):
         """Nested list via intermediate keys must not flatten."""

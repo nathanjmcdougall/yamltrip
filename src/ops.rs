@@ -93,6 +93,7 @@ impl PyOp {
         for (k, v) in dict.iter() {
             let key_str: String = k.extract()?;
             let val = py_to_yaml_value(&v)?;
+            // matches! with wildcard patterns only inspects; no move occurs.
             if matches!(
                 val,
                 serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)

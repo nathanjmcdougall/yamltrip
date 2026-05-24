@@ -93,7 +93,10 @@ impl PyOp {
         for (k, v) in dict.iter() {
             let key_str: String = k.extract()?;
             let val = py_to_yaml_value(&v)?;
-            // matches! with wildcard patterns only inspects; no move occurs.
+            // `matches!` with wildcard `_` patterns does not move `val`: the
+            // expanded `match` only inspects the enum discriminant without
+            // binding or destructuring inner data, so `val` remains owned and
+            // usable in `map.insert` below.
             if matches!(
                 val,
                 serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)

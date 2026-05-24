@@ -1,3 +1,5 @@
+import pytest
+
 from yamltrip._core import Op, Patch, Route, apply_patches
 
 
@@ -17,6 +19,14 @@ class TestOpConstructors:
     def test_append(self):
         op = Op.append("item")
         assert op is not None
+
+    def test_merge_into_rejects_nested_dict(self):
+        with pytest.raises(ValueError, match="merge_into requires scalar values"):
+            Op.merge_into("key", {"child": {"nested": 1}})
+
+    def test_merge_into_rejects_nested_list(self):
+        with pytest.raises(ValueError, match="merge_into requires scalar values"):
+            Op.merge_into("key", {"items": [1, 2, 3]})
 
 
 class TestApplyPatches:

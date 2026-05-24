@@ -93,6 +93,16 @@ impl PyOp {
         for (k, v) in dict.iter() {
             let key_str: String = k.extract()?;
             let val = py_to_yaml_value(&v)?;
+            if matches!(
+                val,
+                serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)
+            ) {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "merge_into requires scalar values, but key '{}' has a non-scalar value; \
+                     use Op.add + Op.replace for nested values",
+                    key_str
+                )));
+            }
             map.insert(key_str, val);
         }
         Ok(Self {

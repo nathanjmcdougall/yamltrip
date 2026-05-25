@@ -557,8 +557,9 @@ class Document:
 
         normalized = _normalize_keys(keys) if keys else ()
 
-        # If path doesn't exist, delegate to upsert.
-        # Root (empty keys) always exists, so skip the check.
+        # If a non-root path doesn't exist, delegate to upsert.
+        # For the root path, defer missing/empty-document handling to the
+        # parse_value(...) fallback below.
         if normalized:
             route = _make_route(normalized)
             if not self._core_doc.query_exists(route):
@@ -566,7 +567,8 @@ class Document:
                     return self.upsert(*normalized, value=value)
                 except PatchError as e:
                     if "unexpected node" in str(e):
-                        raise NodeTypeError(str(e)) from None
+                        msg = f"Value at {format_path(normalized)} is not a mapping"
+                        raise NodeTypeError(msg) from None
                     raise
 
         # Get current value and diff

@@ -110,5 +110,5 @@ class TestMergeErrors:
     def test_merge_through_scalar_raises(self):
         """Merging through a scalar path raises NodeTypeError."""
         doc = Document("a:\n  b: 1\n")
-        with pytest.raises(NodeTypeError):
+        with pytest.raises(NodeTypeError, match="Value at a > b"):
             doc.merge("a", "b", "c", value={"x": 1})

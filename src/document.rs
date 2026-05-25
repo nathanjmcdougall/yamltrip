@@ -94,6 +94,16 @@ impl PyDocument {
             match self.inner.query_exact(&r) {
                 Ok(Some(feature)) => {
                     let span = feature.location.byte_span;
+                    // Note: span.0 <= span.1 is guaranteed by tree-sitter node
+                    // ranges, so we only check bounds and UTF-8 alignment.
+                    if span.1 > source.len()
+                        || !source.is_char_boundary(span.0)
+                        || !source.is_char_boundary(span.1)
+                    {
+                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                            "Feature span is not valid in source",
+                        ));
+                    }
                     let raw = &source[span.0..span.1];
                     // Calculate the column offset (in bytes) of the value
                     // start relative to the beginning of its line, so we can
@@ -285,6 +295,10 @@ fn apply_insert_at(
         .ok_or_else(|| format!("insert_at: item at index {resolved} not found"))?;
 
     let item_start = item_feature.location.byte_span.0;
+    // Note: no reversed-span check needed; tree-sitter nodes guarantee start <= end.
+    if item_start > source.len() || !source.is_char_boundary(item_start) {
+        return Err("Feature span is not valid in source".to_string());
+    }
     let line_start = source[..item_start]
         .rfind('\n')
         .map(|nl| nl + 1)
@@ -343,6 +357,14 @@ fn apply_complex_replace(
         .query_pretty(route)
         .map_err(|e| format!("Query failed: {e}"))?;
 
+    let span = feature.location.byte_span;
+    // Note: span.0 <= span.1 is guaranteed by tree-sitter node ranges,
+    // so we only check bounds and UTF-8 alignment.
+    if span.1 > source.len() || !source.is_char_boundary(span.0) || !source.is_char_boundary(span.1)
+    {
+        return Err("Feature span is not valid in source".to_string());
+    }
+
     let content_with_ws = doc.extract_with_leading_whitespace(&feature);
     let content = doc.extract(&feature);
 
@@ -353,39 +375,52 @@ fn apply_complex_replace(
     let start_byte = feature.location.byte_span.0 - ws_len;
     let end_byte = feature.location.byte_span.1;
 
-    // Find the colon separating key from value
-    let colon_pos = find_key_colon(content_with_ws);
+    // Use query_exact to locate the value's byte span independently.
+    // This avoids string-searching for the colon separator, which breaks
+    // on quoted keys containing colons (e.g. "http://example.com": 8080).
+    let value_feature = doc
+        .query_exact(route)
+        .map_err(|e| format!("Query failed: {e}"))?;
 
-    let key_part = match colon_pos {
-        Some(pos) => {
-            let key = &content_with_ws[..pos + 1]; // through the colon
-            key.to_string()
+    let key_part = match value_feature {
+        Some(vf) => {
+            let vf_start = vf.location.byte_span.0;
+            // Note: no reversed-span check needed; tree-sitter nodes guarantee start <= end.
+            if vf_start > source.len() || !source.is_char_boundary(vf_start) {
+                return Err("Value feature span is not valid in source".to_string());
+            }
+            let prefix = source[start_byte..vf_start].trim_end();
+            if prefix.is_empty() {
+                // Bare value (e.g. sequence item) — no key prefix
+                let serialized = serde_yaml::to_string(value)
+                    .map_err(|e| format!("Failed to serialize YAML: {e}"))?;
+                let trimmed = serialized.trim_end_matches('\n');
+
+                let line_start = source[..feature.location.byte_span.0]
+                    .rfind('\n')
+                    .map(|nl| nl + 1)
+                    .unwrap_or(0);
+                let base_indent = feature.location.byte_span.0 - line_start;
+                let indent_str = " ".repeat(base_indent);
+
+                let indented = indent_block(trimmed, &indent_str);
+
+                let mut result = source.to_string();
+                result.replace_range(
+                    feature.location.byte_span.0..feature.location.byte_span.1,
+                    &indented,
+                );
+                if !result.ends_with('\n') {
+                    result.push('\n');
+                }
+                return yamlpath::Document::new(result)
+                    .map_err(|e| format!("Failed to re-parse YAML: {e}"));
+            }
+            prefix.to_string()
         }
         None => {
-            // No colon found — bare value (e.g. sequence item)
-            let serialized = serde_yaml::to_string(value)
-                .map_err(|e| format!("Failed to serialize YAML: {e}"))?;
-            let trimmed = serialized.trim_end_matches('\n');
-
-            let line_start = source[..feature.location.byte_span.0]
-                .rfind('\n')
-                .map(|nl| nl + 1)
-                .unwrap_or(0);
-            let base_indent = feature.location.byte_span.0 - line_start;
-            let indent_str = " ".repeat(base_indent);
-
-            let indented = indent_block(trimmed, &indent_str);
-
-            let mut result = source.to_string();
-            result.replace_range(
-                feature.location.byte_span.0..feature.location.byte_span.1,
-                &indented,
-            );
-            if !result.ends_with('\n') {
-                result.push('\n');
-            }
-            return yamlpath::Document::new(result)
-                .map_err(|e| format!("Failed to re-parse YAML: {e}"));
+            // Absent value (e.g. `key:\n`) — content is just key+colon
+            content_with_ws.trim_end().to_string()
         }
     };
 
@@ -422,16 +457,6 @@ fn apply_complex_replace(
     }
 
     yamlpath::Document::new(result).map_err(|e| format!("Failed to re-parse YAML: {e}"))
-}
-
-/// Find the first colon (key-value separator) in a YAML fragment.
-///
-/// Uses a naive `find(':')`, consistent with yamlpatch's own Replace
-/// implementation. This means colons inside quoted keys will be
-/// misidentified — a known yamlpatch limitation that will be fixed
-/// uniformly when yamlpatch addresses it.
-fn find_key_colon(content: &str) -> Option<usize> {
-    content.find(':')
 }
 
 fn indent_block(content: &str, indent: &str) -> String {

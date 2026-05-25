@@ -349,6 +349,12 @@ class TestDocumentReplaceComplex:
         doc2 = doc.replace("config", value={"x": 10})
         assert doc2["config"] == {"x": 10}
 
+    def test_replace_quoted_key_with_colon_complex_value(self):
+        """Regression: colon inside quoted key must not corrupt complex replace."""
+        doc = Document('"http://example.com": 8080\n')
+        doc2 = doc.replace("http://example.com", value={"port": 9090})
+        assert doc2["http://example.com"] == {"port": 9090}
+
     def test_replace_key_with_hash_in_value(self):
         doc = Document("color: '#ff0000'\n")
         doc2 = doc.replace("color", value={"r": 255, "g": 0, "b": 0})

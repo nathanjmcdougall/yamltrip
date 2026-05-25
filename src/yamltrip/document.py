@@ -562,7 +562,12 @@ class Document:
         if normalized:
             route = _make_route(normalized)
             if not self._core_doc.query_exists(route):
-                return self.upsert(*normalized, value=value)
+                try:
+                    return self.upsert(*normalized, value=value)
+                except PatchError as e:
+                    if "unexpected node" in str(e):
+                        raise NodeTypeError(str(e)) from None
+                    raise
 
         # Get current value and diff
         try:

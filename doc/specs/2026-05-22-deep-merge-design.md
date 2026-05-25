@@ -1,8 +1,7 @@
 # Design: Deep Merge (`merge()`)
 
 **Date:** 2026-05-22  
-**Status:** Approved  
-**Relates to:** `doc/todo/feature-deep-merge.md`
+**Status:** Approved
 
 ## Summary
 

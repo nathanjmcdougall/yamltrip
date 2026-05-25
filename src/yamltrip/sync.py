@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class DiffMode(Enum):
-    """Controls how _compute_patches diffs values."""
+    """Controls how compute_patches diffs values."""
 
     SYNC = "sync"
     """Exact sync: remove extra keys, diff lists element-wise."""

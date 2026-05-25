@@ -167,6 +167,17 @@ class TestPatchErrorStringPins:
             == _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED
         )
 
+    def test_unexpected_node_substring(self):
+        """Op.merge_into on a scalar node raises an error containing 'unexpected node'."""
+        doc = Document("name: scalar\n")
+        msg = self._raw_error(doc, "name", op=Op.merge_into("nested", {"foo": "bar"}))
+        assert _PatchErrorKind.UNEXPECTED_NODE.value in msg
+
+    def test_classify_unexpected_node(self):
+        doc = Document("name: scalar\n")
+        msg = self._raw_error(doc, "name", op=Op.merge_into("nested", {"foo": "bar"}))
+        assert _classify_patch_error(PatchError(msg)) == _PatchErrorKind.UNEXPECTED_NODE
+
     def test_classify_unknown(self):
         assert (
             _classify_patch_error(PatchError("some unrelated error"))

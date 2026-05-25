@@ -503,7 +503,7 @@ class Document:
                 try:
                     return self.upsert(*normalized, value=value)
                 except PatchError as e:
-                    if "unexpected node" in str(e):
+                    if _classify_patch_error(e) == _PatchErrorKind.UNEXPECTED_NODE:
                         # Find deepest existing ancestor to report
                         failing = normalized
                         for i in range(len(normalized), 0, -1):
@@ -640,6 +640,7 @@ class _PatchErrorKind(enum.Enum):
     FLOW_SEQUENCE = "flow sequence"
     NOT_A_SEQUENCE = "only permitted against sequence"
     BLOCK_SEQUENCE_EXPECTED = "expected BlockSequence"
+    UNEXPECTED_NODE = "unexpected node"
     UNKNOWN = ""
 
 
@@ -656,4 +657,6 @@ def _classify_patch_error(err: PatchError) -> _PatchErrorKind:
         return _PatchErrorKind.NOT_A_SEQUENCE
     if _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED.value in msg:
         return _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED
+    if _PatchErrorKind.UNEXPECTED_NODE.value in msg:
+        return _PatchErrorKind.UNEXPECTED_NODE
     return _PatchErrorKind.UNKNOWN

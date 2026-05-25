@@ -76,22 +76,10 @@ pub enum PyComponent {
 
 #[pymethods]
 impl PyComponent {
-    #[staticmethod]
-    fn key(name: &str) -> Self {
-        Self::Key {
-            name: name.to_string(),
-        }
-    }
-
-    #[staticmethod]
-    fn index(index: usize) -> Self {
-        Self::Index { index }
-    }
-
     fn __repr__(&self) -> String {
         match self {
-            Self::Key { name } => format!("Component.key('{name}')"),
-            Self::Index { index } => format!("Component.index({index})"),
+            Self::Key { name } => format!("Component.Key('{name}')"),
+            Self::Index { index } => format!("Component.Index({index})"),
         }
     }
 }

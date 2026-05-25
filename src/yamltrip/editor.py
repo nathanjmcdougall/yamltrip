@@ -5,14 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from yamltrip.document import Document, _normalize_keys
+from typing_extensions import override
+
+from .document import Document, normalize_keys
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import TracebackType
 
-    from yamltrip._core import Feature
-    from yamltrip._types import KeyPart
+    from ._core import Feature
+    from ._types import KeyPart
 
 
 class Editor:
@@ -24,11 +26,12 @@ class Editor:
 
     def __init__(self, path: str | Path) -> None:
         """Create an editor for the given YAML file path."""
-        self._path = Path(path)
+        self._path: Path = Path(path)
         self._original: Document | None = None
         self._document: Document | None = None
         self._original_source: str | None = None
 
+    @override
     def __repr__(self) -> str:
         """Return a developer-friendly representation."""
         return f"Editor('{self._path}')"
@@ -57,12 +60,13 @@ class Editor:
         made between ``__enter__`` and ``__exit__`` but is not atomic and
         cannot guard against concurrent writes during the write itself.
         """
+        del exc_val, exc_tb
         if exc_type is None and self._document is not None:
             current_source = self._path.read_text(encoding="utf-8")
             if current_source != self._original_source:
                 msg = f"File was modified externally: {self._path}"
                 raise RuntimeError(msg)
-            self._path.write_text(self._document.dumps(), encoding="utf-8")
+            _ = self._path.write_text(self._document.dumps(), encoding="utf-8")
         self._original = None
         self._document = None
         self._original_source = None
@@ -102,7 +106,7 @@ class Editor:
 
     def __setitem__(self, keys: object, value: Any) -> None:
         """Upsert a value at the given path."""
-        normalized = _normalize_keys(keys)
+        normalized = normalize_keys(keys)
         self._document = self.document.upsert(*normalized, value=value)
 
     def replace(self, *keys: KeyPart, value: Any) -> None:
@@ -150,6 +154,10 @@ class Editor:
     def sync(self, *keys: KeyPart, value: Any) -> None:
         """Sync the value at path to match the desired value."""
         self._document = self.document.sync(*keys, value=value)
+
+    def merge(self, *keys: KeyPart, value: Any) -> None:
+        """Merge or replace the value at path, depending on node type."""
+        self._document = self.document.merge(*keys, value=value)
 
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs."""

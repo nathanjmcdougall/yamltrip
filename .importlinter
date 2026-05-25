@@ -18,5 +18,3 @@ exhaustive_ignores =
     _display
     _types
 ignore_imports =
-    yamltrip.document -> yamltrip
-    yamltrip.sync -> yamltrip

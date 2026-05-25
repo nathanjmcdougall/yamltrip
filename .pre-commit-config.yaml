@@ -55,6 +55,20 @@ repos:
         entry: uv run --frozen cargo clippy --all-targets --no-default-features -- -D warnings
         language: system
         pass_filenames: false
+  - repo: local
+    hooks:
+      - id: basedpyright
+        name: basedpyright
+        always_run: true
+        entry: uv run --frozen --offline basedpyright
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.16
+    hooks:
+      - id: vulture
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
     hooks:

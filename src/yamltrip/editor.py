@@ -80,14 +80,6 @@ class Editor:
         return self._original
 
     @property
-    def document(self) -> Document:
-        """The current in-progress document."""
-        if self._document is None:
-            msg = "Editor must be used as a context manager"
-            raise RuntimeError(msg)
-        return self._document
-
-    @property
     def root(self) -> Any:
         """The entire document parsed as a Python object."""
         return self.document.root
@@ -170,3 +162,11 @@ class Editor:
     def extract(self, feature: Feature) -> str:
         """Extract the raw YAML text for a feature."""
         return self.document.extract(feature)
+
+    @property
+    def document(self) -> Document:
+        """The current in-progress document."""
+        if self._document is None:
+            msg = "Editor must be used as a context manager"
+            raise RuntimeError(msg)
+        return self._document

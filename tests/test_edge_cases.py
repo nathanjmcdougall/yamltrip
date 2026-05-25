@@ -2,7 +2,13 @@
 
 import pytest
 
-from yamltrip.document import Document
+from yamltrip._core import Op, Patch
+from yamltrip.document import (
+    Document,
+    _classify_patch_error,
+    _make_route,
+    _PatchErrorKind,
+)
 from yamltrip.editor import Editor
 from yamltrip.errors import PatchError, QueryError
 
@@ -109,3 +115,60 @@ class TestQueryMissingPath:
         doc = Document("name: foo")
         with pytest.raises(QueryError):
             doc["missing"]
+
+
+class TestPatchErrorStringPins:
+    """Pin the yamlpatch error substrings that _classify_patch_error depends on.
+
+    If yamlpatch changes its error wording these tests fail loudly rather than
+    causing silent mis-classification at runtime.
+    """
+
+    def _raw_error(self, doc: Document, *keys: str, op: Op) -> str:
+        """Trigger a PatchError through _apply_patches and return its message."""
+        route = _make_route(keys)
+        with pytest.raises(PatchError) as exc_info:
+            doc._apply_patches([Patch(route=route, operation=op)])
+        return str(exc_info.value)
+
+    def test_flow_sequence_substring(self):
+        """Op.append on a flow-sequence node raises an error containing 'flow sequence'."""
+        doc = Document("items: [a, b]\n")
+        msg = self._raw_error(doc, "items", op=Op.append("c"))
+        assert _PatchErrorKind.FLOW_SEQUENCE.value in msg
+
+    def test_not_a_sequence_substring(self):
+        """Op.append on a scalar node raises an error containing 'only permitted against sequence'."""
+        doc = Document("name: hello\n")
+        msg = self._raw_error(doc, "name", op=Op.append("x"))
+        assert _PatchErrorKind.NOT_A_SEQUENCE.value in msg
+
+    def test_block_sequence_expected_substring(self):
+        """Op.insert_at on a flow-sequence node raises an error containing 'expected BlockSequence'."""
+        doc = Document("items: [a, b]\n")
+        msg = self._raw_error(doc, "items", op=Op.insert_at(index=0, value="c"))
+        assert _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED.value in msg
+
+    def test_classify_flow_sequence(self):
+        doc = Document("items: [a, b]\n")
+        msg = self._raw_error(doc, "items", op=Op.append("c"))
+        assert _classify_patch_error(PatchError(msg)) == _PatchErrorKind.FLOW_SEQUENCE
+
+    def test_classify_not_a_sequence(self):
+        doc = Document("name: hello\n")
+        msg = self._raw_error(doc, "name", op=Op.append("x"))
+        assert _classify_patch_error(PatchError(msg)) == _PatchErrorKind.NOT_A_SEQUENCE
+
+    def test_classify_block_sequence_expected(self):
+        doc = Document("items: [a, b]\n")
+        msg = self._raw_error(doc, "items", op=Op.insert_at(index=0, value="c"))
+        assert (
+            _classify_patch_error(PatchError(msg))
+            == _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED
+        )
+
+    def test_classify_unknown(self):
+        assert (
+            _classify_patch_error(PatchError("some unrelated error"))
+            == _PatchErrorKind.UNKNOWN
+        )

@@ -94,6 +94,16 @@ impl PyDocument {
             match self.inner.query_exact(&r) {
                 Ok(Some(feature)) => {
                     let span = feature.location.byte_span;
+                    // Note: span.0 <= span.1 is guaranteed by tree-sitter node
+                    // ranges, so we only check bounds and UTF-8 alignment.
+                    if span.1 > source.len()
+                        || !source.is_char_boundary(span.0)
+                        || !source.is_char_boundary(span.1)
+                    {
+                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                            "Feature span is not valid in source",
+                        ));
+                    }
                     let raw = &source[span.0..span.1];
                     // Calculate the column offset (in bytes) of the value
                     // start relative to the beginning of its line, so we can
@@ -285,6 +295,10 @@ fn apply_insert_at(
         .ok_or_else(|| format!("insert_at: item at index {resolved} not found"))?;
 
     let item_start = item_feature.location.byte_span.0;
+    // Note: no reversed-span check needed; tree-sitter nodes guarantee start <= end.
+    if item_start > source.len() || !source.is_char_boundary(item_start) {
+        return Err("Feature span is not valid in source".to_string());
+    }
     let line_start = source[..item_start]
         .rfind('\n')
         .map(|nl| nl + 1)
@@ -343,6 +357,14 @@ fn apply_complex_replace(
         .query_pretty(route)
         .map_err(|e| format!("Query failed: {e}"))?;
 
+    let span = feature.location.byte_span;
+    // Note: span.0 <= span.1 is guaranteed by tree-sitter node ranges,
+    // so we only check bounds and UTF-8 alignment.
+    if span.1 > source.len() || !source.is_char_boundary(span.0) || !source.is_char_boundary(span.1)
+    {
+        return Err("Feature span is not valid in source".to_string());
+    }
+
     let content_with_ws = doc.extract_with_leading_whitespace(&feature);
     let content = doc.extract(&feature);
 
@@ -362,7 +384,12 @@ fn apply_complex_replace(
 
     let key_part = match value_feature {
         Some(vf) => {
-            let prefix = source[start_byte..vf.location.byte_span.0].trim_end();
+            let vf_start = vf.location.byte_span.0;
+            // Note: no reversed-span check needed; tree-sitter nodes guarantee start <= end.
+            if vf_start > source.len() || !source.is_char_boundary(vf_start) {
+                return Err("Value feature span is not valid in source".to_string());
+            }
+            let prefix = source[start_byte..vf_start].trim_end();
             if prefix.is_empty() {
                 // Bare value (e.g. sequence item) — no key prefix
                 let serialized = serde_yaml::to_string(value)

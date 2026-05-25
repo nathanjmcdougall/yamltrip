@@ -55,6 +55,10 @@ repos:
         entry: uv run --frozen cargo clippy --all-targets --no-default-features -- -D warnings
         language: system
         pass_filenames: false
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.16
+    hooks:
+      - id: vulture
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
     hooks:

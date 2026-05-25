@@ -57,6 +57,7 @@ class Editor:
         made between ``__enter__`` and ``__exit__`` but is not atomic and
         cannot guard against concurrent writes during the write itself.
         """
+        del exc_val, exc_tb
         if exc_type is None and self._document is not None:
             current_source = self._path.read_text(encoding="utf-8")
             if current_source != self._original_source:
@@ -152,7 +153,7 @@ class Editor:
         self._document = self.document.sync(*keys, value=value)
 
     def merge(self, *keys: KeyPart, value: Any) -> None:
-        """Merge a value into the mapping at path without removing extra keys."""
+        """Merge or replace the value at path, depending on node type."""
         self._document = self.document.merge(*keys, value=value)
 
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:

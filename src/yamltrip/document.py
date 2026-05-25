@@ -547,13 +547,16 @@ class Document:
             return self._apply_patches([_core.Patch(route=route, operation=op)])
 
     def merge(self, *keys: KeyPart, value: Any) -> Document:
-        """Merge a value into the mapping at path without removing extra keys.
+        """Merge or replace the value at path, depending on node type.
 
-        Recursively updates matching keys and adds new keys, but never
-        removes existing keys not present in *value*. Lists are replaced
-        entirely (not merged element-wise).
+        If both the existing value and *value* are mappings, matching keys
+        are updated recursively and new keys are added, but existing keys not
+        present in *value* are preserved. Lists are replaced entirely (not
+        merged element-wise), and scalars are replaced. If the path does not
+        exist, it is created. If the existing node type differs from *value*,
+        the value at path is replaced.
         """
-        from yamltrip.sync import _compute_patches  # noqa: PLC0415
+        from yamltrip.sync import DiffMode, _compute_patches  # noqa: PLC0415
 
         normalized = _normalize_keys(keys) if keys else ()
 
@@ -567,7 +570,14 @@ class Document:
                     return self.upsert(*normalized, value=value)
                 except PatchError as e:
                     if "unexpected node" in str(e):
-                        msg = f"Value at {format_path(normalized)} is not a mapping"
+                        # Find deepest existing ancestor to report
+                        failing = normalized
+                        for i in range(len(normalized), 0, -1):
+                            sub = normalized[:i]
+                            if self._core_doc.query_exists(_make_route(sub)):
+                                failing = sub
+                                break
+                        msg = f"Value at {format_path(failing)} is not a mapping"
                         raise NodeTypeError(msg) from None
                     raise
 
@@ -580,26 +590,10 @@ class Document:
         if old_value == value:
             return self
 
-        # Pre-convert any flow sequences that will be modified.
-        doc: Document = self
-        flow_patches = _flow_seq_replacements(
-            self._core_doc, old_value, value, normalized
-        )
-        if flow_patches:
-            doc = doc._apply_patches(flow_patches)
-            old_value = doc._core_doc.parse_value(_make_route(normalized))
-
-        patches = _compute_patches(old_value, value, normalized, remove_extra=False)
+        patches = _compute_patches(old_value, value, normalized, mode=DiffMode.MERGE)
         if not patches:
-            return doc
-        try:
-            return doc._apply_patches(patches)
-        except PatchError as e:
-            if "expected BlockSequence" not in str(e):
-                raise
-            route = _make_route(normalized)
-            op = _core.Op.replace(value)
-            return doc._apply_patches([_core.Patch(route=route, operation=op)])
+            return self
+        return self._apply_patches(patches)
 
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs.

@@ -94,6 +94,15 @@ impl PyDocument {
             match self.inner.query_exact(&r) {
                 Ok(Some(feature)) => {
                     let span = feature.location.byte_span;
+                    // Note: span.0 <= span.1 is guaranteed by tree-sitter node construction.
+                    if span.1 > source.len()
+                        || !source.is_char_boundary(span.0)
+                        || !source.is_char_boundary(span.1)
+                    {
+                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                            "Feature span is out of bounds or not aligned to UTF-8 character boundaries",
+                        ));
+                    }
                     let raw = &source[span.0..span.1];
                     // Calculate the column offset (in bytes) of the value
                     // start relative to the beginning of its line, so we can
@@ -285,6 +294,12 @@ fn apply_insert_at(
         .ok_or_else(|| format!("insert_at: item at index {resolved} not found"))?;
 
     let item_start = item_feature.location.byte_span.0;
+    if item_start > source.len() || !source.is_char_boundary(item_start) {
+        return Err(
+            "Feature span is out of bounds or not aligned to UTF-8 character boundaries"
+                .to_string(),
+        );
+    }
     let line_start = source[..item_start]
         .rfind('\n')
         .map(|nl| nl + 1)
@@ -342,6 +357,16 @@ fn apply_complex_replace(
     let feature = doc
         .query_pretty(route)
         .map_err(|e| format!("Query failed: {e}"))?;
+
+    let span = feature.location.byte_span;
+    // Note: span.0 <= span.1 is guaranteed by tree-sitter node construction.
+    if span.1 > source.len() || !source.is_char_boundary(span.0) || !source.is_char_boundary(span.1)
+    {
+        return Err(
+            "Feature span is out of bounds or not aligned to UTF-8 character boundaries"
+                .to_string(),
+        );
+    }
 
     let content_with_ws = doc.extract_with_leading_whitespace(&feature);
     let content = doc.extract(&feature);

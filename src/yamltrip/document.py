@@ -570,6 +570,9 @@ class Document:
         except (ValueError, KeyError):
             return self.upsert(*normalized, value=value)
 
+        if old_value == value:
+            return self
+
         # Pre-convert any flow sequences that will be modified.
         doc: Document = self
         flow_patches = _flow_seq_replacements(
@@ -589,7 +592,7 @@ class Document:
                 raise
             route = _make_route(normalized)
             op = _core.Op.replace(value)
-            return self._apply_patches([_core.Patch(route=route, operation=op)])
+            return doc._apply_patches([_core.Patch(route=route, operation=op)])
 
     def find_index(self, *keys: KeyPart, where: dict[str, Any]) -> int | None:
         """Return the index of the first list item matching all key/value pairs.

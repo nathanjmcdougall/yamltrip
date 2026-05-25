@@ -1,5 +1,8 @@
+import pytest
+
 from yamltrip import edit
 from yamltrip.document import Document
+from yamltrip.errors import PatchError
 
 
 class TestMergeMapping:
@@ -101,3 +104,11 @@ class TestEditorMerge:
         assert "a: 99" in result
         assert "b: 2" in result
         assert "c: 3" in result
+
+
+class TestMergeErrors:
+    def test_merge_through_scalar_raises(self):
+        """Merging through a scalar path raises PatchError."""
+        doc = Document("a:\n  b: 1\n")
+        with pytest.raises(PatchError):
+            doc.merge("a", "b", "c", value={"x": 1})

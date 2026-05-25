@@ -5,9 +5,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from yamltrip import _core
-from yamltrip._display import format_path
-from yamltrip.errors import (
+from typing_extensions import override
+
+from ._core import (
+    Document as CoreDocument,
+)
+from ._core import (
+    FeatureKind,
+    Op,
+    Patch,
+    Route,
+    serialize_value,
+)
+from ._display import format_path
+from .errors import (
     KeyExistsError,
     KeyMissingError,
     NodeTypeError,
@@ -19,10 +30,11 @@ from yamltrip.errors import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from yamltrip._types import KeyPart
+    from ._core import Feature
+    from ._types import KeyPart
 
 
-def _normalize_keys(keys: object) -> tuple[KeyPart, ...]:
+def normalize_keys(keys: object) -> tuple[KeyPart, ...]:
     """Normalize __getitem__ input to a tuple of keys."""
     if isinstance(keys, (str, int)):
         return (keys,)
@@ -36,13 +48,16 @@ def _normalize_keys(keys: object) -> tuple[KeyPart, ...]:
     raise TypeError(msg)
 
 
-def _make_route(keys: Sequence[KeyPart]) -> _core.Route:
-    """Build a _core.Route from a sequence of keys."""
-    return _core.Route(list(keys))
+def _make_route(keys: Sequence[KeyPart]) -> Route:
+    """Build a Route from a sequence of keys."""
+    return Route(list(keys))
 
 
-def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
-    """Raise PatchError if any key is an int (cannot create sequences via upsert)."""
+def _ensure_str_keys(keys: tuple[KeyPart, ...]) -> tuple[str, ...]:
+    """Validate all keys are strings for creation operations.
+
+    Raises PatchError if any key is an int (cannot create sequences via upsert).
+    """
     for k in keys:
         if isinstance(k, int):
             msg = (
@@ -50,26 +65,25 @@ def _check_no_int_keys_for_creation(keys: Sequence[KeyPart]) -> None:
                 "only string keys can create new mappings"
             )
             raise PatchError(msg)
+    return cast("tuple[str, ...]", keys)
 
 
 def _flow_seq_replacements(
-    core_doc: _core.Document,
+    core_doc: CoreDocument,
     old_value: Any,
     new_value: Any,
     path: tuple[KeyPart, ...],
-) -> list[_core.Patch]:
+) -> list[Patch]:
     """Find flow sequences that need modification and emit targeted replace patches."""
-    patches: list[_core.Patch] = []
+    patches: list[Patch] = []
 
     if isinstance(old_value, list) and isinstance(new_value, list):
         if old_value != new_value:
             route = _make_route(path)
             try:
                 feature = core_doc.query_exact(route)
-                if feature and feature.kind == _core.FeatureKind.FlowSequence:
-                    patches.append(
-                        _core.Patch(route=route, operation=_core.Op.replace(new_value))
-                    )
+                if feature and feature.kind == FeatureKind.FlowSequence:
+                    patches.append(Patch(route=route, operation=Op.replace(new_value)))
                     return patches
             except (KeyError, ValueError):
                 pass
@@ -109,20 +123,20 @@ class Document:
     def __init__(self, source: str) -> None:
         """Parse a YAML string into an immutable document."""
         try:
-            self._core_doc = _core.Document(source)
+            self._core_doc: CoreDocument = CoreDocument(source)
         except (ValueError, RuntimeError) as e:
             raise ParseError(str(e)) from None
-        self._source = source
+        self._source: str = source
 
     @classmethod
-    def _from_core(cls, core_doc: _core.Document) -> Document:
-        """Construct a Document from an already-parsed _core.Document."""
+    def _from_core(cls, core_doc: CoreDocument) -> Document:
+        """Construct a Document from an already-parsed CoreDocument."""
         obj = object.__new__(cls)
         obj._core_doc = core_doc
         obj._source = core_doc.source()
         return obj
 
-    def _apply_patches(self, patches: list[_core.Patch]) -> Document:
+    def _apply_patches(self, patches: list[Patch]) -> Document:
         """Apply patches to this document and return a new Document."""
         try:
             core_doc = self._core_doc.apply_patches(patches)
@@ -142,7 +156,7 @@ class Document:
 
     def get(self, *keys: KeyPart, default: Any = None) -> Any:
         """Return the parsed value at path, or default if the path doesn't exist."""
-        normalized = _normalize_keys(keys)
+        normalized = normalize_keys(keys)
         route = _make_route(normalized)
         try:
             return self._core_doc.parse_value(route)
@@ -151,16 +165,19 @@ class Document:
         except ValueError as e:
             raise QueryError(str(e)) from None
 
+    @override
     def __eq__(self, other: object) -> bool:
         """Compare documents by their source text."""
         if not isinstance(other, Document):
             return NotImplemented
         return self._source == other._source
 
+    @override
     def __hash__(self) -> int:
         """Hash based on source text."""
         return hash(self._source)
 
+    @override
     def __repr__(self) -> str:
         """Return a developer-friendly representation."""
         return f"Document(<{len(self._source)} bytes>)"
@@ -170,7 +187,7 @@ class Document:
 
         An empty tuple ``()`` retrieves the entire document as a Python object.
         """
-        normalized = _normalize_keys(keys)
+        normalized = normalize_keys(keys)
         route = _make_route(normalized)
         try:
             return self._core_doc.parse_value(route)
@@ -183,11 +200,11 @@ class Document:
         An empty tuple ``()`` checks that the document has a root data node.
         Returns False for empty or comment-only documents.
         """
-        normalized = _normalize_keys(keys)
+        normalized = normalize_keys(keys)
         route = _make_route(normalized)
         return self._core_doc.query_exists(route)
 
-    def query(self, *keys: KeyPart) -> _core.Feature:
+    def query(self, *keys: KeyPart) -> Feature:
         """Return the Feature at the given path."""
         route = _make_route(keys)
         try:
@@ -199,7 +216,7 @@ class Document:
             raise QueryError(msg)
         return feature
 
-    def query_pretty(self, *keys: KeyPart) -> _core.Feature:
+    def query_pretty(self, *keys: KeyPart) -> Feature:
         """Return a Feature with context (surrounding structure) at the path."""
         route = _make_route(keys)
         try:
@@ -211,7 +228,7 @@ class Document:
         """Check whether the document contains YAML anchors (&anchor/*alias)."""
         return self._core_doc.has_anchors()
 
-    def extract(self, feature: _core.Feature) -> str:
+    def extract(self, feature: Feature) -> str:
         """Extract the raw YAML text for a feature."""
         return self._core_doc.extract(feature)
 
@@ -221,7 +238,7 @@ class Document:
 
     def dump(self, path: str | Path) -> None:
         """Write the YAML source text to a file."""
-        Path(path).write_text(self._source, encoding="utf-8")
+        _ = Path(path).write_text(self._source, encoding="utf-8")
 
     def replace(self, *keys: KeyPart, value: Any) -> Document:
         """Replace value at an existing path. Raises KeyMissingError if missing."""
@@ -230,8 +247,8 @@ class Document:
             msg = f"Path not found: {keys}"
             raise KeyMissingError(msg)
 
-        op = _core.Op.replace(value)
-        patch = _core.Patch(route=route, operation=op)
+        op = Op.replace(value)
+        patch = Patch(route=route, operation=op)
         return self._apply_patches([patch])
 
     def add(self, *keys: KeyPart, key: str, value: Any) -> Document:
@@ -243,11 +260,11 @@ class Document:
             raise KeyExistsError(msg)
 
         if self._is_empty_document():
-            return self._create_at((), full_path, value)
+            return self._create_at((), _ensure_str_keys(full_path), value)
 
         route = _make_route(keys)
-        op = _core.Op.add(key, value)
-        patch = _core.Patch(route=route, operation=op)
+        op = Op.add(key, value)
+        patch = Patch(route=route, operation=op)
         return self._apply_patches([patch])
 
     def _is_empty_document(self) -> bool:
@@ -257,32 +274,24 @@ class Document:
     def _create_at(
         self,
         parent_keys: tuple[KeyPart, ...],
-        child_keys: tuple[KeyPart, ...],
+        child_keys: tuple[str, ...],
         value: Any,
     ) -> Document:
         """Create a nested value under parent_keys using child_keys."""
-        _check_no_int_keys_for_creation(child_keys)
-
         # Bootstrap root mapping if document has no root data node
         if not parent_keys and self._is_empty_document():
             first_key = child_keys[0]
-            if not isinstance(first_key, str):
-                msg = f"Expected string key, got {type(first_key).__name__}"
-                raise TypeError(msg)
             nested_value = value
             for k in reversed(child_keys[1:]):
                 nested_value = {k: nested_value}
             full_dict = {first_key: nested_value}
-            yaml_text = _core.serialize_value(full_dict)
+            yaml_text = serialize_value(full_dict)
             prefix = self._source
             if prefix and not prefix.endswith("\n"):
                 prefix += "\n"
             return Document(prefix + yaml_text)
 
         first_key = child_keys[0]
-        if not isinstance(first_key, str):
-            msg = f"Expected string key, got {type(first_key).__name__}"
-            raise TypeError(msg)
         nested_value = value
         for k in reversed(child_keys[1:]):
             nested_value = {k: nested_value}
@@ -293,17 +302,17 @@ class Document:
             # Op.merge_into is scoped to flat mappings (uniform indent); for
             # nested values, add a placeholder then replace via complex-replace
             # which preserves relative indentation.
-            add_op = _core.Op.add(first_key, None)
-            add_patch = _core.Patch(route=route, operation=add_op)
+            add_op = Op.add(first_key, None)
+            add_patch = Patch(route=route, operation=add_op)
             replace_route = _make_route((*parent_keys, first_key))
-            replace_op = _core.Op.replace(nested_value)
-            replace_patch = _core.Patch(route=replace_route, operation=replace_op)
+            replace_op = Op.replace(nested_value)
+            replace_patch = Patch(route=replace_route, operation=replace_op)
             return self._apply_patches([add_patch, replace_patch])
         elif isinstance(nested_value, dict):
-            op = _core.Op.merge_into(first_key, nested_value)
+            op = Op.merge_into(first_key, nested_value)
         else:
-            op = _core.Op.add(first_key, nested_value)
-        patch = _core.Patch(route=route, operation=op)
+            op = Op.add(first_key, nested_value)
+        patch = Patch(route=route, operation=op)
         return self._apply_patches([patch])
 
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
@@ -315,8 +324,8 @@ class Document:
                 )
                 raise PatchError(msg)
             route = _make_route(())
-            op = _core.Op.replace(value)
-            patch = _core.Patch(route=route, operation=op)
+            op = Op.replace(value)
+            patch = Patch(route=route, operation=op)
             return self._apply_patches([patch])
 
         full_route = _make_route(keys)
@@ -328,16 +337,18 @@ class Document:
             ancestor_keys = keys[:depth]
             ancestor_route = _make_route(ancestor_keys)
             if self._core_doc.query_exists(ancestor_route):
-                return self._create_at(ancestor_keys, keys[depth:], value)
+                return self._create_at(
+                    ancestor_keys, _ensure_str_keys(keys[depth:]), value
+                )
 
         # No path exists — add at root
-        return self._create_at((), keys, value)
+        return self._create_at((), _ensure_str_keys(keys), value)
 
     def remove(self, *keys: KeyPart, prune: bool = False) -> Document:
         """Remove the key/index at path."""
         route = _make_route(keys)
-        op = _core.Op.remove()
-        patch = _core.Patch(route=route, operation=op)
+        op = Op.remove()
+        patch = Patch(route=route, operation=op)
         doc = self._apply_patches([patch])
 
         if prune and len(keys) > 1:
@@ -360,8 +371,8 @@ class Document:
     def append(self, *keys: KeyPart, value: Any) -> Document:
         """Append a single item to the sequence at path."""
         route = _make_route(keys)
-        op = _core.Op.append(value)
-        patch = _core.Patch(route=route, operation=op)
+        op = Op.append(value)
+        patch = Patch(route=route, operation=op)
         try:
             return self._apply_patches([patch])
         except PatchError as e:
@@ -370,10 +381,8 @@ class Document:
             if "flow sequence" in msg:
                 current = self[keys]
                 new_list = [*list(current), value]
-                replace_op = _core.Op.replace(new_list)
-                return self._apply_patches(
-                    [_core.Patch(route=route, operation=replace_op)]
-                )
+                replace_op = Op.replace(new_list)
+                return self._apply_patches([Patch(route=route, operation=replace_op)])
             if "only permitted against sequence" in msg:
                 raise NodeTypeError(msg) from None
             raise
@@ -385,8 +394,8 @@ class Document:
         negative indices count from the end, out-of-range indices clamp.
         """
         route = _make_route(keys)
-        op = _core.Op.insert_at(index=index, value=value)
-        patch = _core.Patch(route=route, operation=op)
+        op = Op.insert_at(index=index, value=value)
+        patch = Patch(route=route, operation=op)
         try:
             return self._apply_patches([patch])
         except PatchError as e:
@@ -398,19 +407,17 @@ class Document:
             current = self[keys]
             if not isinstance(current, list):
                 raise NodeTypeError(msg) from None
-            new_list = list(current)
+            new_list: list[Any] = list(current)
             new_list.insert(index, value)
-            replace_op = _core.Op.replace(new_list)
-            return self._apply_patches([_core.Patch(route=route, operation=replace_op)])
+            replace_op = Op.replace(new_list)
+            return self._apply_patches([Patch(route=route, operation=replace_op)])
 
     def extend_list(self, *keys: KeyPart, values: Sequence[Any]) -> Document:
         """Append multiple items to the sequence at path."""
         if not values:
             return self
         route = _make_route(keys)
-        patches = [
-            _core.Patch(route=route, operation=_core.Op.append(v)) for v in values
-        ]
+        patches = [Patch(route=route, operation=Op.append(v)) for v in values]
         try:
             return self._apply_patches(patches)
         except PatchError as e:
@@ -419,10 +426,8 @@ class Document:
             if "flow sequence" in msg:
                 current = self[keys]
                 new_list = [*list(current), *values]
-                replace_op = _core.Op.replace(new_list)
-                return self._apply_patches(
-                    [_core.Patch(route=route, operation=replace_op)]
-                )
+                replace_op = Op.replace(new_list)
+                return self._apply_patches([Patch(route=route, operation=replace_op)])
             if "only permitted against sequence" in msg:
                 raise NodeTypeError(msg) from None
             raise
@@ -443,9 +448,9 @@ class Document:
         if not indices_to_remove:
             return self
         patches = [
-            _core.Patch(
+            Patch(
                 route=_make_route((*keys, idx)),
-                operation=_core.Op.remove(),
+                operation=Op.remove(),
             )
             for idx in indices_to_remove
         ]
@@ -504,9 +509,9 @@ class Document:
         Diffs the current value against the desired value and applies
         the minimal set of patches. Returns self if no changes needed.
         """
-        from yamltrip.sync import _compute_patches  # noqa: PLC0415
+        from yamltrip.sync import compute_patches  # noqa: PLC0415
 
-        normalized = _normalize_keys(keys) if keys else ()
+        normalized = normalize_keys(keys) if keys else ()
 
         # If path doesn't exist, delegate to upsert.
         # Root (empty keys) always exists, so skip the check.
@@ -532,7 +537,7 @@ class Document:
             # Re-read old_value from the now-converted document
             old_value = doc._core_doc.parse_value(_make_route(normalized))
 
-        patches = _compute_patches(old_value, value, normalized)
+        patches = compute_patches(old_value, value, normalized)
         if not patches:
             return doc
         try:
@@ -543,8 +548,8 @@ class Document:
             # Fallback: a flow sequence was missed by pre-detection (e.g. due to
             # list reordering). Replace the entire synced value.
             route = _make_route(normalized)
-            op = _core.Op.replace(value)
-            return self._apply_patches([_core.Patch(route=route, operation=op)])
+            op = Op.replace(value)
+            return self._apply_patches([Patch(route=route, operation=op)])
 
     def merge(self, *keys: KeyPart, value: Any) -> Document:
         """Merge or replace the value at path, depending on node type.
@@ -556,9 +561,9 @@ class Document:
         exist, it is created. If the existing node type differs from *value*,
         the value at path is replaced.
         """
-        from yamltrip.sync import DiffMode, _compute_patches  # noqa: PLC0415
+        from yamltrip.sync import DiffMode, compute_patches  # noqa: PLC0415
 
-        normalized = _normalize_keys(keys) if keys else ()
+        normalized = normalize_keys(keys) if keys else ()
 
         # If a non-root path doesn't exist, delegate to upsert.
         # For the root path, defer missing/empty-document handling to the
@@ -590,7 +595,7 @@ class Document:
         if old_value == value:
             return self
 
-        patches = _compute_patches(old_value, value, normalized, mode=DiffMode.MERGE)
+        patches = compute_patches(old_value, value, normalized, mode=DiffMode.MERGE)
         if not patches:
             return self
         return self._apply_patches(patches)

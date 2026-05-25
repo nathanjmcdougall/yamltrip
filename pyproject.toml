@@ -18,10 +18,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
-dependencies = []
+dependencies = [
+  "typing-extensions>=4.4.0",
+]
 
 [dependency-groups]
 dev = [
+  "basedpyright>=1.39.6",
   "codespell>=2.4.2",
   "deptry>=0.25.1",
   "import-linter>=2.11",
@@ -76,6 +79,26 @@ report.exclude_also = [
   "raise NotImplementedError",
 ]
 report.omit = [ "*/pytest-of-*/*" ]
+
+[tool.basedpyright]
+reportAny = false
+reportExplicitAny = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportMissingParameterType = false
+reportPrivateUsage = false
+reportUnannotatedClassAttribute = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnreachable = false
+reportUnusedCallResult = false
+reportUnusedExpression = false
+reportUnusedFunction = false
+reportUnusedParameter = false
 
 [tool.vulture]
 paths = [ "src/yamltrip" ]

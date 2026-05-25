@@ -37,21 +37,21 @@ class TestFeatureKind:
 
 class TestComponent:
     def test_key(self):
-        c = Component.key("name")
-        assert repr(c) == "Component.key('name')"
+        c = Component.Key("name")
+        assert repr(c) == "Component.Key('name')"
 
     def test_index(self):
-        c = Component.index(0)
-        assert repr(c) == "Component.index(0)"
+        c = Component.Index(0)
+        assert repr(c) == "Component.Index(0)"
 
     def test_eq(self):
-        assert Component.key("a") == Component.key("a")
-        assert Component.key("a") != Component.key("b")
-        assert Component.index(0) == Component.index(0)
-        assert Component.key("0") != Component.index(0)
+        assert Component.Key("a") == Component.Key("a")
+        assert Component.Key("a") != Component.Key("b")
+        assert Component.Index(0) == Component.Index(0)
+        assert Component.Key("0") != Component.Index(0)
 
     def test_hash(self):
-        s = {Component.key("a"), Component.key("a"), Component.key("b")}
+        s = {Component.Key("a"), Component.Key("a"), Component.Key("b")}
         assert len(s) == 2
 
 

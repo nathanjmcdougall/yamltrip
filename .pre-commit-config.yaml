@@ -63,6 +63,7 @@ repos:
         entry: uv run --frozen --offline basedpyright
         language: system
         types: [python]
+        pass_filenames: false
         require_serial: true
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.16

@@ -30,7 +30,7 @@ from .errors import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from ._core import Feature
     from ._types import KeyPart
@@ -316,20 +316,8 @@ class Document:
     def append(self, *keys: KeyPart, value: Any) -> Document:
         """Append a single item to the sequence at path."""
         route = _make_route(keys)
-        op = Op.append(value)
-        patch = Patch(route=route, operation=op)
-        try:
-            return self._apply_patches([patch])
-        except PatchError as e:
-            kind = _classify_patch_error(e)
-            if kind == _PatchErrorKind.FLOW_SEQUENCE:
-                current = self[keys]
-                new_list = [*list(current), value]
-                replace_op = Op.replace(new_list)
-                return self._apply_patches([Patch(route=route, operation=replace_op)])
-            if kind == _PatchErrorKind.NOT_A_SEQUENCE:
-                raise NodeTypeError(str(e)) from None
-            raise
+        patch = Patch(route=route, operation=Op.append(value))
+        return self._with_flow_seq_fallback(keys, [patch], lambda lst: [*lst, value])
 
     def insert(self, *keys: KeyPart, index: int, value: Any) -> Document:
         """Insert an item at a specific position in the sequence at path.
@@ -361,15 +349,25 @@ class Document:
             return self
         route = _make_route(keys)
         patches = [Patch(route=route, operation=Op.append(v)) for v in values]
+        return self._with_flow_seq_fallback(keys, patches, lambda lst: [*lst, *values])
+
+    def _with_flow_seq_fallback(
+        self,
+        keys: tuple[KeyPart, ...],
+        patches: list[Patch],
+        fallback_fn: Callable[[list[Any]], list[Any]],
+    ) -> Document:
+        """Apply patches, falling back to get→mutate→replace for flow sequences."""
         try:
             return self._apply_patches(patches)
         except PatchError as e:
             kind = _classify_patch_error(e)
             if kind == _PatchErrorKind.FLOW_SEQUENCE:
-                current = self[keys]
-                new_list = [*list(current), *values]
-                replace_op = Op.replace(new_list)
-                return self._apply_patches([Patch(route=route, operation=replace_op)])
+                new_list = fallback_fn(list(self[keys]))
+                route = _make_route(keys)
+                return self._apply_patches(
+                    [Patch(route=route, operation=Op.replace(new_list))]
+                )
             if kind == _PatchErrorKind.NOT_A_SEQUENCE:
                 raise NodeTypeError(str(e)) from None
             raise

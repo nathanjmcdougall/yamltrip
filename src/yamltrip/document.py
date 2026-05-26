@@ -26,6 +26,7 @@ from .errors import (
     ParseError,
     PatchError,
     QueryError,
+    RoutingError,
 )
 
 if TYPE_CHECKING:
@@ -197,7 +198,13 @@ class Document:
         route = _make_route(keys)
         op = Op.add(key, value)
         patch = Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            return self._apply_patches([patch])
+        except PatchError as e:
+            if _is_routing_error(_classify_patch_error(e)):
+                msg = f"Route passes through a non-mapping node at {format_path(keys)}"
+                raise RoutingError(msg) from None
+            raise
 
     def upsert(self, *keys: KeyPart, value: Any) -> Document:
         """Replace if exists, create (with intermediate mappings) if not."""
@@ -253,24 +260,30 @@ class Document:
         for k in reversed(child_keys[1:]):
             nested_value = {k: nested_value}
         route = _make_route(parent_keys)
-        if isinstance(nested_value, dict) and any(
-            isinstance(v, (dict, list, tuple)) for v in nested_value.values()
-        ):
-            # Op.merge_into is scoped to flat mappings (uniform indent); for
-            # nested values, add a placeholder then replace via complex-replace
-            # which preserves relative indentation.
-            add_op = Op.add(first_key, None)
-            add_patch = Patch(route=route, operation=add_op)
-            replace_route = _make_route((*parent_keys, first_key))
-            replace_op = Op.replace(nested_value)
-            replace_patch = Patch(route=replace_route, operation=replace_op)
-            return self._apply_patches([add_patch, replace_patch])
-        elif isinstance(nested_value, dict):
-            op = Op.merge_into(first_key, nested_value)
-        else:
-            op = Op.add(first_key, nested_value)
-        patch = Patch(route=route, operation=op)
-        return self._apply_patches([patch])
+        try:
+            if isinstance(nested_value, dict) and any(
+                isinstance(v, (dict, list, tuple)) for v in nested_value.values()
+            ):
+                # Op.merge_into is scoped to flat mappings (uniform indent); for
+                # nested values, add a placeholder then replace via complex-replace
+                # which preserves relative indentation.
+                add_op = Op.add(first_key, None)
+                add_patch = Patch(route=route, operation=add_op)
+                replace_route = _make_route((*parent_keys, first_key))
+                replace_op = Op.replace(nested_value)
+                replace_patch = Patch(route=replace_route, operation=replace_op)
+                return self._apply_patches([add_patch, replace_patch])
+            elif isinstance(nested_value, dict):
+                op = Op.merge_into(first_key, nested_value)
+            else:
+                op = Op.add(first_key, nested_value)
+            patch = Patch(route=route, operation=op)
+            return self._apply_patches([patch])
+        except PatchError as e:
+            if _is_routing_error(_classify_patch_error(e)):
+                msg = f"Route passes through a non-mapping node at {format_path(parent_keys)}"
+                raise RoutingError(msg) from None
+            raise
 
     def _is_empty_document(self) -> bool:
         """True if the document has no root data node."""
@@ -500,20 +513,7 @@ class Document:
         if normalized:
             route = _make_route(normalized)
             if not self._core_doc.query_exists(route):
-                try:
-                    return self.upsert(*normalized, value=value)
-                except PatchError as e:
-                    if _classify_patch_error(e) == _PatchErrorKind.UNEXPECTED_NODE:
-                        # Find deepest existing ancestor to report
-                        failing = normalized
-                        for i in range(len(normalized), 0, -1):
-                            sub = normalized[:i]
-                            if self._core_doc.query_exists(_make_route(sub)):
-                                failing = sub
-                                break
-                        msg = f"Value at {format_path(failing)} is not a mapping"
-                        raise NodeTypeError(msg) from None
-                    raise
+                return self.upsert(*normalized, value=value)
 
         # Get current value and diff
         try:
@@ -640,6 +640,8 @@ class _PatchErrorKind(enum.Enum):
     FLOW_SEQUENCE = "flow sequence"
     NOT_A_SEQUENCE = "only permitted against sequence"
     BLOCK_SEQUENCE_EXPECTED = "expected BlockSequence"
+    NON_MAPPING_ROUTE = "non-mapping route"
+    EXPECTED_MAPPING = "expected mapping containing key"
     UNEXPECTED_NODE = "unexpected node"
     UNKNOWN = ""
 
@@ -649,14 +651,30 @@ def _classify_patch_error(err: PatchError) -> _PatchErrorKind:
 
     All yamlpatch error-message substrings are confined here so that
     callers can branch on the enum rather than matching raw strings.
+
+    The tuple is ordered explicitly. More specific substrings must appear
+    before any that are a prefix of them (e.g. EXPECTED_MAPPING before a
+    hypothetical EXPECTED) so that substring matching is unambiguous.
     """
     msg = str(err)
-    if _PatchErrorKind.FLOW_SEQUENCE.value in msg:
-        return _PatchErrorKind.FLOW_SEQUENCE
-    if _PatchErrorKind.NOT_A_SEQUENCE.value in msg:
-        return _PatchErrorKind.NOT_A_SEQUENCE
-    if _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED.value in msg:
-        return _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED
-    if _PatchErrorKind.UNEXPECTED_NODE.value in msg:
-        return _PatchErrorKind.UNEXPECTED_NODE
+    _ordered = (
+        _PatchErrorKind.FLOW_SEQUENCE,
+        _PatchErrorKind.NOT_A_SEQUENCE,
+        _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED,
+        _PatchErrorKind.NON_MAPPING_ROUTE,
+        _PatchErrorKind.EXPECTED_MAPPING,
+        _PatchErrorKind.UNEXPECTED_NODE,
+    )
+    for kind in _ordered:
+        if kind.value in msg:
+            return kind
     return _PatchErrorKind.UNKNOWN
+
+
+def _is_routing_error(kind: _PatchErrorKind) -> bool:
+    """Return True if kind represents a routing failure through a non-mapping node."""
+    return kind in (
+        _PatchErrorKind.NON_MAPPING_ROUTE,
+        _PatchErrorKind.EXPECTED_MAPPING,
+        _PatchErrorKind.UNEXPECTED_NODE,
+    )

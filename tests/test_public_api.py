@@ -39,6 +39,7 @@ class TestExports:
         assert issubclass(yamltrip.PatchError, yamltrip.YAMLTripError)
         assert issubclass(yamltrip.KeyExistsError, yamltrip.PatchError)
         assert issubclass(yamltrip.KeyMissingError, yamltrip.PatchError)
+        assert issubclass(yamltrip.RoutingError, yamltrip.PatchError)
 
     def test_core_types(self):
         assert yamltrip.Location is not None

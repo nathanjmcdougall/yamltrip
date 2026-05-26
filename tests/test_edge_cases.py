@@ -178,6 +178,32 @@ class TestPatchErrorStringPins:
         msg = self._raw_error(doc, "name", op=Op.merge_into("nested", {"foo": "bar"}))
         assert _classify_patch_error(PatchError(msg)) == _PatchErrorKind.UNEXPECTED_NODE
 
+    def test_non_mapping_route_substring(self):
+        """Op.add on a scalar node raises an error containing 'non-mapping route'."""
+        doc = Document("name: scalar\n")
+        msg = self._raw_error(doc, "name", op=Op.add("child", "val"))
+        assert _PatchErrorKind.NON_MAPPING_ROUTE.value in msg
+
+    def test_classify_non_mapping_route(self):
+        doc = Document("name: scalar\n")
+        msg = self._raw_error(doc, "name", op=Op.add("child", "val"))
+        assert (
+            _classify_patch_error(PatchError(msg)) == _PatchErrorKind.NON_MAPPING_ROUTE
+        )
+
+    def test_expected_mapping_substring(self):
+        """Op.merge_into on a list node raises an error containing 'expected mapping containing key'."""
+        doc = Document("items:\n  - a\n")
+        msg = self._raw_error(doc, "items", op=Op.merge_into("k", {"a": 1}))
+        assert _PatchErrorKind.EXPECTED_MAPPING.value in msg
+
+    def test_classify_expected_mapping(self):
+        doc = Document("items:\n  - a\n")
+        msg = self._raw_error(doc, "items", op=Op.merge_into("k", {"a": 1}))
+        assert (
+            _classify_patch_error(PatchError(msg)) == _PatchErrorKind.EXPECTED_MAPPING
+        )
+
     def test_classify_unknown(self):
         assert (
             _classify_patch_error(PatchError("some unrelated error"))

@@ -14,6 +14,7 @@ from yamltrip.errors import (
     ParseError,
     PatchError,
     QueryError,
+    RoutingError,
     YAMLTripError,
 )
 
@@ -52,6 +53,7 @@ __all__ = [
     "PatchError",
     "QueryError",
     "Route",
+    "RoutingError",
     "YAMLTripError",
     "edit",
     "load",

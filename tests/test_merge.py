@@ -2,7 +2,7 @@ import pytest
 
 from yamltrip import edit
 from yamltrip.document import Document
-from yamltrip.errors import NodeTypeError
+from yamltrip.errors import RoutingError
 
 
 class TestMergeMapping:
@@ -108,7 +108,13 @@ class TestEditorMerge:
 
 class TestMergeErrors:
     def test_merge_through_scalar_raises(self):
-        """Merging through a scalar path raises NodeTypeError."""
+        """Merging through a scalar path raises RoutingError."""
         doc = Document("a:\n  b: 1\n")
-        with pytest.raises(NodeTypeError, match="Value at a > b"):
+        with pytest.raises(RoutingError, match="non-mapping node at a > b"):
             doc.merge("a", "b", "c", value={"x": 1})
+
+    def test_merge_through_list_raises(self):
+        """Merging through a list node raises RoutingError."""
+        doc = Document("items:\n  - a\n  - b\n")
+        with pytest.raises(RoutingError, match="non-mapping node at items"):
+            doc.merge("items", "child", value={"x": 1})

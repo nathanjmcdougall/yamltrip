@@ -25,5 +25,9 @@ class KeyMissingError(PatchError):
     """Raised by replace() when the key doesn't exist."""
 
 
+class RoutingError(PatchError):
+    """Raised when a key path passes through a non-mapping node."""
+
+
 class NodeTypeError(PatchError, TypeError):
     """Raised when a node is not the expected type for the operation."""

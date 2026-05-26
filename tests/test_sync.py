@@ -1,5 +1,8 @@
+import pytest
+
 from yamltrip.document import Document
 from yamltrip.editor import Editor
+from yamltrip.errors import RoutingError
 
 
 class TestSyncMappingAddKey:
@@ -300,3 +303,11 @@ class TestSyncIntegration:
         doc2 = doc.sync("ci", value={"autofix_prs": False, "skip": ["codespell"]})
         assert doc2["ci", "autofix_prs"] is False
         assert doc2["ci", "skip"] == ["codespell"]
+
+
+class TestSyncRoutingError:
+    def test_sync_through_scalar_raises_routing_error(self):
+        """sync() through a scalar node raises RoutingError via upsert delegation."""
+        doc = Document("a: scalar\n")
+        with pytest.raises(RoutingError, match="non-mapping node at a"):
+            doc.sync("a", "b", value={"x": 1})

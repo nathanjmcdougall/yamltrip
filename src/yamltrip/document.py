@@ -651,10 +651,22 @@ def _classify_patch_error(err: PatchError) -> _PatchErrorKind:
 
     All yamlpatch error-message substrings are confined here so that
     callers can branch on the enum rather than matching raw strings.
+
+    The tuple is ordered explicitly. More specific substrings must appear
+    before any that are a prefix of them (e.g. EXPECTED_MAPPING before a
+    hypothetical EXPECTED) so that substring matching is unambiguous.
     """
     msg = str(err)
-    for kind in _PatchErrorKind:
-        if kind.value and kind.value in msg:
+    _ordered = (
+        _PatchErrorKind.FLOW_SEQUENCE,
+        _PatchErrorKind.NOT_A_SEQUENCE,
+        _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED,
+        _PatchErrorKind.NON_MAPPING_ROUTE,
+        _PatchErrorKind.EXPECTED_MAPPING,
+        _PatchErrorKind.UNEXPECTED_NODE,
+    )
+    for kind in _ordered:
+        if kind.value in msg:
             return kind
     return _PatchErrorKind.UNKNOWN
 

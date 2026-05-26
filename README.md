@@ -117,6 +117,8 @@ All yamltrip errors inherit from `YAMLTripError`:
 - **`PatchError`**: mutation operation failed.
   - **`KeyExistsError`**: `add()` target already exists.
   - **`KeyMissingError`**: `replace()` target does not exist.
+  - **`RoutingError`**: path passes through a non-mapping node (scalar or list).
+  - **`NodeTypeError`** (`PatchError` + `TypeError`): node is the wrong type for the operation (e.g. appending to a scalar).
 
 ## Limitations
 

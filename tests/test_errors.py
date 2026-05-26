@@ -36,6 +36,16 @@ class TestErrorHierarchy:
         assert issubclass(NodeTypeError, PatchError)
         assert issubclass(NodeTypeError, TypeError)
 
+    def test_node_type_error_catchable_as_patch_error(self):
+        msg = "not a list"
+        with pytest.raises(PatchError):
+            raise NodeTypeError(msg)
+
+    def test_node_type_error_catchable_as_type_error(self):
+        msg = "not a list"
+        with pytest.raises(TypeError):
+            raise NodeTypeError(msg)
+
     def test_raise_and_catch_base(self):
         msg = "key already exists"
         with pytest.raises(YAMLTripError, match=msg):

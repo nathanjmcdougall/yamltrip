@@ -1,5 +1,6 @@
 import pytest
 
+from yamltrip import Document
 from yamltrip.errors import (
     KeyExistsError,
     KeyMissingError,
@@ -59,3 +60,25 @@ class TestRoutingErrorHierarchy:
     def test_message(self):
         err = RoutingError("Route passes through a non-mapping node at a")
         assert "a" in str(err)
+
+
+class TestRoutingErrorBehaviour:
+    def test_upsert_through_scalar_raises_routing_error(self):
+        doc = Document("a: scalar\n")
+        with pytest.raises(RoutingError, match="non-mapping node at a"):
+            doc.upsert("a", "b", value="foo")
+
+    def test_upsert_through_list_raises_routing_error(self):
+        doc = Document("items:\n  - x\n")
+        with pytest.raises(RoutingError, match="non-mapping node at items"):
+            doc.upsert("items", "b", value="foo")
+
+    def test_add_through_scalar_raises_routing_error(self):
+        doc = Document("name: scalar\n")
+        with pytest.raises(RoutingError, match="non-mapping node at name"):
+            doc.add("name", key="child", value="foo")
+
+    def test_routing_error_is_catchable_as_patch_error(self):
+        doc = Document("a: scalar\n")
+        with pytest.raises(PatchError):
+            doc.upsert("a", "b", value="foo")

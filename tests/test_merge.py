@@ -112,3 +112,9 @@ class TestMergeErrors:
         doc = Document("a:\n  b: 1\n")
         with pytest.raises(RoutingError, match="non-mapping node at a > b"):
             doc.merge("a", "b", "c", value={"x": 1})
+
+    def test_merge_through_list_raises(self):
+        """Merging through a list node raises RoutingError."""
+        doc = Document("items:\n  - a\n  - b\n")
+        with pytest.raises(RoutingError, match="non-mapping node at items"):
+            doc.merge("items", "child", value={"x": 1})

@@ -472,11 +472,11 @@ class Document:
         #
         # Phase 1 (_flow_seq_replacements) pre-converts only the flow sequences
         # that will be modified.  A full replace at a higher path would
-        # re-serialise the whole mapping with 2-space indentation, losing the
-        # document's existing indent for nested lists.
+        # re-serialize the whole mapping with the default indentation, losing
+        # the document's existing indent for nested lists.
         #
         # Phase 2 (except PatchError below) catches cases phase 1 misses.  The
-        # main gap is list reordering: new indices in the diff weren't in the
+        # known gap is list reordering: new indices in the diff weren't in the
         # original tree, so phase 1 couldn't anticipate them.
         doc: Document = self
         flow_patches = _flow_seq_replacements(
@@ -496,7 +496,8 @@ class Document:
             if _classify_patch_error(e) != _PatchErrorKind.BLOCK_SEQUENCE_EXPECTED:
                 raise
             # Fallback: a flow sequence was missed by pre-detection (e.g. due to
-            # list reordering). Replace the entire synced value.
+            # list reordering).  Full replace from original doc; phase 1 work
+            # is superseded.
             route = _make_route(normalized)
             op = Op.replace(value)
             return self._apply_patches([Patch(route=route, operation=op)])

@@ -468,8 +468,16 @@ class Document:
         except (ValueError, KeyError):
             return self.upsert(*normalized, value=value)
 
-        # Pre-convert any flow sequences that will be modified.
-        # This targets only the affected leaf paths, preserving sibling formatting.
+        # Two-phase flow-sequence handling:
+        #
+        # Phase 1 (_flow_seq_replacements) pre-converts only the flow sequences
+        # that will be modified.  A full replace at a higher path would
+        # re-serialise the whole mapping with 2-space indentation, losing the
+        # document's existing indent for nested lists.
+        #
+        # Phase 2 (except PatchError below) catches cases phase 1 misses.  The
+        # main gap is list reordering: new indices in the diff weren't in the
+        # original tree, so phase 1 couldn't anticipate them.
         doc: Document = self
         flow_patches = _flow_seq_replacements(
             self._core_doc, old_value, value, normalized

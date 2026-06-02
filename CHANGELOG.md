@@ -1,34 +1,5 @@
 # Changelog
-## 0.6.0
 
-### Features
-
-- Added `merge()` method to `Document` and `Editor` for recursive mapping merging with deep value updates.
-- Added `find_index()` for searching list-of-dicts by matching fields, returning the index of the first matching element.
-- Added `ensure_in_list()` for appending a value to a list only if it's not already present.
-- Added `RoutingError(PatchError)` to the error hierarchy for non-mapping route failures. Operations that attempt to navigate through non-mapping nodes now raise `RoutingError` instead of generic errors.
-- Enhanced error messages with human-readable path formatting in `NodeTypeError` messages for clarity.
-- Added basedpyright type checking for improved static type verification.
-
-### Fixes
-
-- Fixed naive colon finder that corrupted quoted keys containing colons (#46).
-- Replaced unsafe byte indexing with upfront span validation to prevent index-out-of-bounds errors (#45).
-- Fixed nested dict flattening in `_create_at` that could lose intermediate keys during upsert operations (#42).
-- Added support for upsert operations into empty documents without requiring sentinel workaround (#35).
-
-### Internal
-
-- Centralized patch-error classification and applied stepdown rule for better error type hierarchy management (#47).
-
-### Documentation
-
-- Added `NodeTypeError` and `RoutingError` to README error hierarchy documentation (#49).
-
-### Testing
-
-- Added `test_api_contracts` to verify Editor/Document method coverage and consistency (#52).
-- Added tests verifying `NodeTypeError` is catchable as both `PatchError` and `TypeError` (#51).
 ## 0.6.0
 
 ### Features

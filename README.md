@@ -82,6 +82,7 @@ doc.remove_from_list("items", values=["a"])
 doc.ensure_in_list("items", value="c")  # no-op if already present
 doc.ensure_in_list("repos", where={"name": "x"}, value={"name": "x", "version": "1.0"})
 doc.sync("items", value=["a", "new", "b"])  # minimal diff-and-patch
+doc.merge("config", value={"debug": True, "level": 2})  # recursive mapping merge
 doc.find_index("repos", where={"id": "x"})  # find in list-of-dicts; returns int | None
 
 doc.query("items")            # Feature with location info
@@ -103,6 +104,7 @@ with yamltrip.edit("config.yml") as ed:
     ed.upsert("new_key", value="new_value")
     ed.remove("old_key")
     ed.sync("deps", value={"a": "1.0", "b": "2.0"})  # minimal patching
+    ed.merge("settings", value={"debug": True, "level": 2})  # recursive merge
     print(ed["version"])        # "2.0"
     print(ed.get("missing"))    # None
     print(ed.original["version"])  # original value before edits
